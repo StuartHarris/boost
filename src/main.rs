@@ -28,7 +28,7 @@ struct Config {
     run: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, Default, PartialEq)]
 struct Hash {
     value: String,
 }
@@ -58,11 +58,14 @@ fn main() -> Result<()> {
     let path = PathBuf::from_str(CACHE_DIR)?.join("hash");
 
     let previous: Hash = {
-        let mut f = File::open(&path)?;
-        let mut s = String::new();
-        f.read_to_string(&mut s)
-            .with_context(|| format!("reading {}", path.to_string_lossy()))?;
-        serde_json::from_str(&s)?
+        if let Ok(mut f) = File::open(&path) {
+            let mut s = String::new();
+            f.read_to_string(&mut s)
+                .with_context(|| format!("reading {}", path.to_string_lossy()))?;
+            serde_json::from_str(&s)?
+        } else {
+            Hash::default()
+        }
     };
 
     let current = Hash {
