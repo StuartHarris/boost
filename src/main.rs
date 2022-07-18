@@ -1,6 +1,6 @@
 mod cache;
 
-use crate::cache::Hash;
+use crate::cache::{Hash, Manifest};
 use anyhow::{Context, Result};
 use clap::Parser;
 use globset::{Glob, GlobSetBuilder};
@@ -33,10 +33,10 @@ fn main() -> Result<()> {
     }
     let input_patterns = builder.build()?;
     let current = Hash::new(&input_patterns)?;
-    let previous = Hash::read()?;
+    let previous = Manifest::read(&current)?.unwrap_or_default().hash;
     if current != previous {
         println!("inputs have changed");
-        current.write()?;
+        Manifest::new(current).write()?;
     }
 
     println!("{:?}", config.outputs);
