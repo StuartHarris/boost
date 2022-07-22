@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use humantime::format_duration;
 use std::{
-    fs,
+    env, fs,
     path::PathBuf,
     time::{Duration, SystemTime},
 };
@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     let file = fs::read(args.file).context("opening file")?;
     let config: Config = toml::from_slice(&file).context("parsing TOML")?;
 
-    let current = Hash::new(&config.inputs, &file)?;
+    let current = Hash::new(&config.inputs, &file, env::args())?;
     if let Some(previous) = Manifest::read(&current)? {
         let duration = SystemTime::now().duration_since(previous.created)?;
         let truncated = Duration::new(duration.as_secs(), 0);
