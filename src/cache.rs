@@ -9,6 +9,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{BufWriter, Read},
     path::{Path, PathBuf},
+    process::Command,
     str::FromStr,
     time::SystemTime,
 };
@@ -87,6 +88,13 @@ impl Hash {
             {
                 let hex = context.read(file);
                 all.extend(Blake2bSum::as_bytes(&hex));
+            }
+
+            if let Some(commands) = &input.commands {
+                for command in commands {
+                    let out = Command::new("sh").args(["-c", command]).output()?;
+                    all.extend_from_slice(out.stdout.as_slice());
+                }
             }
 
             if let Some(env) = &input.env_vars {
