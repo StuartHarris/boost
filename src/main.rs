@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     let file = fs::read(args.file).context("opening file")?;
     let config: Config = toml::from_slice(&file).context("parsing TOML")?;
 
-    let current = Hash::new(&config.inputs)?;
+    let current = Hash::new(&config.inputs, &file)?;
     let previous = Manifest::read(&current)?.unwrap_or_default().hash;
     if current != previous {
         println!("inputs have changed");

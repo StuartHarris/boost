@@ -5,7 +5,7 @@ run = "./test.sh"
 root = "."
 filters = ["*"]
 commands = ["rustc --version"]
-env_vars = [""]
+env_vars = ["TEST"]
 
 [[outputs]]
 root = "."

@@ -5,6 +5,7 @@ use globset::{Glob, GlobSetBuilder};
 use ignore::Walk;
 use serde::{Deserialize, Serialize};
 use std::{
+    env,
     fs::{self, File, OpenOptions},
     io::{BufWriter, Read},
     path::{Path, PathBuf},
@@ -64,7 +65,7 @@ impl Manifest {
 }
 
 impl Hash {
-    pub fn new(inputs: &Vec<Input>) -> Result<Self> {
+    pub fn new(inputs: &[Input], config_file: &[u8]) -> Result<Self> {
         let context = Blake2bSum::new(16);
         let mut all: Vec<u8> = Vec::new();
         for input in inputs {
@@ -82,7 +83,16 @@ impl Hash {
                 let hex = context.read(file);
                 all.extend(Blake2bSum::as_bytes(&hex));
             }
+
+            if let Some(env) = &input.env_vars {
+                for var in env {
+                    if let Ok(val) = env::var(var) {
+                        all.extend_from_slice(val.as_bytes());
+                    }
+                }
+            }
         }
+        all.extend_from_slice(config_file);
         Ok(Self(context.read_bytes(&all)))
     }
 }
