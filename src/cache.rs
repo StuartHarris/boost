@@ -1,4 +1,4 @@
-use crate::config::Input;
+use crate::config::{Config, Input};
 use anyhow::{Context, Result};
 use b2sum_rs::Blake2bSum;
 use globset::{Glob, GlobSetBuilder};
@@ -30,13 +30,15 @@ impl AsRef<Path> for Hash {
 pub struct Manifest {
     pub created: SystemTime,
     pub hash: Hash,
+    pub config: Config,
 }
 
 impl Manifest {
-    pub fn new(hash: Hash) -> Self {
+    pub fn new(hash: Hash, config: Config) -> Self {
         Self {
             created: SystemTime::now(),
             hash,
+            config,
         }
     }
 

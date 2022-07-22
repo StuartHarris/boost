@@ -34,7 +34,7 @@ fn main() -> Result<()> {
         println!("found local cache from {} ago", format_duration(truncated));
     } else {
         println!("no cache found");
-        Manifest::new(current).write()?;
+        Manifest::new(current, config.clone()).write()?;
     };
 
     println!("{:?}", config.outputs);
