@@ -1,10 +1,12 @@
 mod cache;
+pub mod config;
 
-use crate::cache::{Hash, Manifest};
+use crate::{
+    cache::{Hash, Manifest},
+    config::Config,
+};
 use anyhow::{Context, Result};
 use clap::Parser;
-use globset::{Glob, GlobSetBuilder};
-use serde::Deserialize;
 use std::{fs, path::PathBuf};
 
 #[derive(Parser, Debug)]
@@ -15,24 +17,12 @@ struct Args {
     file: PathBuf,
 }
 
-#[derive(Deserialize, Debug)]
-struct Config {
-    inputs: Vec<String>,
-    outputs: Vec<String>,
-    run: Option<String>,
-}
-
 fn main() -> Result<()> {
     let args = Args::parse();
     let file = fs::read(args.file).context("opening file")?;
     let config: Config = toml::from_slice(&file).context("parsing TOML")?;
 
-    let mut builder = GlobSetBuilder::new();
-    for input in config.inputs {
-        builder.add(Glob::new(&input)?);
-    }
-    let input_patterns = builder.build()?;
-    let current = Hash::new(&input_patterns)?;
+    let current = Hash::new(&config.inputs)?;
     let previous = Manifest::read(&current)?.unwrap_or_default().hash;
     if current != previous {
         println!("inputs have changed");

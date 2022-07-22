@@ -1,0 +1,12 @@
+description = "Build boost"
+run = "./test.sh"
+
+[[inputs]]
+root = "."
+filters = ["*"]
+commands = ["rustc --version"]
+env_vars = [""]
+
+[[outputs]]
+root = "."
+filters = ["target/**"]

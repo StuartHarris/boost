@@ -1,6 +1,7 @@
+use crate::config::Input;
 use anyhow::{Context, Result};
 use b2sum_rs::Blake2bSum;
-use globset::GlobSet;
+use globset::{Glob, GlobSetBuilder};
 use ignore::Walk;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -63,16 +64,24 @@ impl Manifest {
 }
 
 impl Hash {
-    pub fn new(patterns: &GlobSet) -> Result<Self> {
+    pub fn new(inputs: &Vec<Input>) -> Result<Self> {
         let context = Blake2bSum::new(16);
         let mut all: Vec<u8> = Vec::new();
-        for file in Walk::new("./")
-            .flatten()
-            .map(|f| f.into_path())
-            .filter(|f| f.is_file() && patterns.is_match(f))
-        {
-            let hex = context.read(file);
-            all.extend(Blake2bSum::as_bytes(&hex));
+        for input in inputs {
+            let mut builder = GlobSetBuilder::new();
+            for filter in &input.filters {
+                builder.add(Glob::new(filter)?);
+            }
+            let filters = builder.build()?;
+
+            for file in Walk::new(&input.root)
+                .flatten()
+                .map(|f| f.into_path())
+                .filter(|f| f.is_file() && filters.is_match(f))
+            {
+                let hex = context.read(file);
+                all.extend(Blake2bSum::as_bytes(&hex));
+            }
         }
         Ok(Self(context.read_bytes(&all)))
     }
