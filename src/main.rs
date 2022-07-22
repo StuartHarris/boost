@@ -7,7 +7,12 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::{fs, path::PathBuf};
+use humantime::format_duration;
+use std::{
+    fs,
+    path::PathBuf,
+    time::{Duration, SystemTime},
+};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -23,11 +28,14 @@ fn main() -> Result<()> {
     let config: Config = toml::from_slice(&file).context("parsing TOML")?;
 
     let current = Hash::new(&config.inputs, &file)?;
-    let previous = Manifest::read(&current)?.unwrap_or_default().hash;
-    if current != previous {
-        println!("inputs have changed");
+    if let Some(previous) = Manifest::read(&current)? {
+        let duration = SystemTime::now().duration_since(previous.created)?;
+        let truncated = Duration::new(duration.as_secs(), 0);
+        println!("found local cache from {} ago", format_duration(truncated));
+    } else {
+        println!("no cache found");
         Manifest::new(current).write()?;
-    }
+    };
 
     println!("{:?}", config.outputs);
     println!("{:?}", config.run);

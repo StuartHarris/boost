@@ -10,6 +10,7 @@ use std::{
     io::{BufWriter, Read},
     path::{Path, PathBuf},
     str::FromStr,
+    time::SystemTime,
 };
 
 const CACHE_DIR: &str = ".boost";
@@ -24,14 +25,18 @@ impl AsRef<Path> for Hash {
     }
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 pub struct Manifest {
+    pub created: SystemTime,
     pub hash: Hash,
 }
 
 impl Manifest {
     pub fn new(hash: Hash) -> Self {
-        Self { hash }
+        Self {
+            created: SystemTime::now(),
+            hash,
+        }
     }
 
     pub fn read(hash: &Hash) -> Result<Option<Self>> {
