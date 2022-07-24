@@ -1,0 +1,7 @@
+description = "Test boost"
+run = "cargo test"
+
+[[inputs]]
+root = "."
+filters = ["*"]
+commands = ["rustc --version"]

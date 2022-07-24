@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub inputs: Vec<Input>,
-    pub outputs: Vec<Output>,
+    pub outputs: Option<Vec<Output>>,
     pub run: String,
 }
 
