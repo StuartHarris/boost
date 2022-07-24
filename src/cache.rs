@@ -1,6 +1,6 @@
 use crate::config::{Config, Input};
-use anyhow::{Context, Result};
 use b2sum_rs::Blake2bSum;
+use color_eyre::eyre::{Context, Result};
 use globset::{Glob, GlobSetBuilder};
 use ignore::Walk;
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ impl Manifest {
         if let Ok(mut f) = File::open(&path) {
             let mut s = String::new();
             f.read_to_string(&mut s)
-                .with_context(|| format!("reading {}", path.to_string_lossy()))?;
+                .wrap_err_with(|| format!("reading {}", path.to_string_lossy()))?;
             let manifest = serde_json::from_str(&s)?;
             Ok(Some((path, manifest)))
         } else {
@@ -62,7 +62,7 @@ impl Manifest {
             .create(true)
             .write(true)
             .open(&path)
-            .with_context(|| format!("opening {} for writing", path.to_string_lossy()))?;
+            .wrap_err_with(|| format!("opening {} for writing", path.to_string_lossy()))?;
         f.set_len(0)?;
         let writer = BufWriter::new(&f);
         serde_json::to_writer(writer, self)?;

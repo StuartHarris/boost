@@ -1,7 +1,7 @@
 // inspired by @fasterthanlime's brilliant post https://fasterthanli.me/articles/a-terminal-case-of-linux
 // and Jakub Kądziołka's great follow up https://compilercrim.es/amos-nerdsniped-me/
 
-use anyhow::Result;
+use color_eyre::eyre::Result;
 use std::{convert::TryFrom, path::Path};
 use tokio::{
     fs::File,

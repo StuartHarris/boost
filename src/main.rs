@@ -6,8 +6,8 @@ use crate::{
     cache::{Hash, Manifest},
     config::Config,
 };
-use anyhow::{Context, Result};
 use clap::Parser;
+use color_eyre::eyre::{Context, Result};
 use humantime::format_duration;
 use std::{
     env, fs,
@@ -28,9 +28,11 @@ const OUTPUT_FILE: &str = "output.txt";
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    color_eyre::install()?;
     let args = Args::parse();
-    let file = fs::read(args.file).context("opening file")?;
-    let config: Config = toml::from_slice(&file).context("parsing TOML")?;
+    let file = fs::read(&args.file)
+        .wrap_err_with(|| format!("opening {}", &args.file.to_string_lossy()))?;
+    let config: Config = toml::from_slice(&file).wrap_err("parsing TOML")?;
 
     let current = Hash::new(&config.inputs, &file, env::args())?;
     if let Some((path, previous)) = Manifest::read(&current)? {
