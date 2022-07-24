@@ -17,7 +17,7 @@ use std::{
 const CACHE_DIR: &str = ".boost";
 const MANIFEST: &str = "manifest.json";
 
-#[derive(Serialize, Deserialize, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct Hash(String);
 
 impl AsRef<Path> for Hash {
@@ -34,15 +34,15 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn new(hash: Hash, config: Config) -> Self {
+    pub fn new(hash: Hash, config: &Config) -> Self {
         Self {
             created: SystemTime::now(),
             hash,
-            config,
+            config: config.clone(),
         }
     }
 
-    pub fn read(hash: &Hash) -> Result<Option<Self>> {
+    pub fn read(hash: &Hash) -> Result<Option<(PathBuf, Self)>> {
         fs::create_dir_all(CACHE_DIR)?;
         let path = PathBuf::from_str(CACHE_DIR)?.join(hash).join(MANIFEST);
         if let Ok(mut f) = File::open(&path) {
@@ -50,16 +50,14 @@ impl Manifest {
             f.read_to_string(&mut s)
                 .with_context(|| format!("reading {}", path.to_string_lossy()))?;
             let manifest = serde_json::from_str(&s)?;
-            Ok(Some(manifest))
+            Ok(Some((path, manifest)))
         } else {
             Ok(None)
         }
     }
 
-    pub fn write(&self) -> Result<()> {
-        let path = PathBuf::from_str(CACHE_DIR)?.join(&self.hash);
-        fs::create_dir_all(&path)?;
-        let path = PathBuf::from(&path).join(MANIFEST);
+    pub fn write(&self) -> Result<PathBuf> {
+        let path = self.hash.create_cache_dir()?.join(MANIFEST);
         let f = OpenOptions::new()
             .create(true)
             .write(true)
@@ -68,7 +66,7 @@ impl Manifest {
         f.set_len(0)?;
         let writer = BufWriter::new(&f);
         serde_json::to_writer(writer, self)?;
-        Ok(())
+        Ok(path)
     }
 }
 
@@ -113,5 +111,11 @@ impl Hash {
         all.extend_from_slice(args.as_bytes());
 
         Ok(Self(context.read_bytes(&all)))
+    }
+
+    pub fn create_cache_dir(&self) -> Result<PathBuf> {
+        let path = PathBuf::from_str(CACHE_DIR)?.join(self);
+        fs::create_dir_all(&path)?;
+        Ok(path)
     }
 }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     pub inputs: Vec<Input>,
     pub outputs: Vec<Output>,
-    pub run: Option<String>,
+    pub run: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -1,5 +1,5 @@
 description = "Build boost"
-run = "./test.sh"
+run = "./build.sh"
 
 [[inputs]]
 root = "."
