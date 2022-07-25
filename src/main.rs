@@ -1,5 +1,6 @@
 extern crate lazy_static;
 
+mod archive;
 mod cache;
 mod command_runner;
 pub mod config;
@@ -27,7 +28,7 @@ struct Args {
     file: PathBuf,
 }
 
-const OUTPUT_FILE: &str = "output.txt";
+const OUTPUT_TXT_FILE: &str = "output.txt";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -50,7 +51,7 @@ async fn main() -> Result<()> {
         let cache_dir = path
             .parent()
             .expect("manifest should have parent directory");
-        let mut f = File::open(&cache_dir.join(OUTPUT_FILE)).await?;
+        let mut f = File::open(&cache_dir.join(OUTPUT_TXT_FILE)).await?;
 
         let mut buffer = String::new();
         f.read_to_string(&mut buffer).await?;
@@ -63,12 +64,17 @@ async fn main() -> Result<()> {
         let cache_dir = path
             .parent()
             .expect("manifest should have parent directory");
-        command_runner::run(&config.run, &cache_dir.join(OUTPUT_FILE)).await?;
+        command_runner::run(&config.run, &cache_dir.join(OUTPUT_TXT_FILE)).await?;
+
+        if let Some(outputs) = config.outputs {
+            archive::write_archive(&outputs, cache_dir)?;
+        }
     };
 
     println!(
         "Finished in {}",
         format_duration(Instant::now() - start, Lowest::MilliSeconds)
     );
+
     Ok(())
 }

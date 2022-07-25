@@ -8,5 +8,5 @@ commands = ["rustc --version"]
 env_vars = ["TEST"]
 
 [[outputs]]
-root = "."
-filters = ["target/**"]
+root = "dist"
+filters = ["dist/boost"]
