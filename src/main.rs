@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate log;
 extern crate lazy_static;
 
 mod archive;
@@ -32,10 +34,11 @@ const OUTPUT_TXT_FILE: &str = "output.txt";
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let start = Instant::now();
+    sensible_env_logger::init_timed!();
     color_eyre::install()?;
     let args = Args::parse();
 
+    let start = Instant::now();
     let file = fs::read(&args.file)
         .wrap_err_with(|| format!("opening {}", &args.file.to_string_lossy()))?;
     let config: Config = toml::from_slice(&file).wrap_err("parsing TOML")?;
@@ -46,7 +49,7 @@ async fn main() -> Result<()> {
             SystemTime::now().duration_since(previous.created)?,
             Lowest::Seconds,
         );
-        println!("found local cache from {ago} ago, reprinting output...\n");
+        info!("found local cache from {ago} ago, reprinting output...\n");
 
         let cache_dir = path
             .parent()
@@ -58,7 +61,7 @@ async fn main() -> Result<()> {
 
         println!("{}", buffer);
     } else {
-        println!("no cache found, executing \"{}\"\n", &config.run);
+        info!("no cache found, executing \"{}\"\n", &config.run);
 
         let path = Manifest::new(current, &config).write()?;
         let cache_dir = path
@@ -71,7 +74,7 @@ async fn main() -> Result<()> {
         }
     };
 
-    println!(
+    info!(
         "Finished in {}",
         format_duration(Instant::now() - start, Lowest::MilliSeconds)
     );

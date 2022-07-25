@@ -47,6 +47,7 @@ pub async fn run(command: &str, output_path: &Path) -> Result<()> {
         }
     }
 
+    println!();
     let mut output = File::create(output_path).await?;
     output.write_all(&out[..]).await?;
     Ok(())

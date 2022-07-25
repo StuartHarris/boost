@@ -26,7 +26,7 @@ pub fn write_archive(outputs: &[Output], cache_dir: &Path) -> Result<()> {
             .map(|f| f.into_path())
             .filter(|f| f.is_file() && filters.is_match(f))
         {
-            println!("{}", file.as_path().to_string_lossy());
+            info!("archiving \"{}\"", file.as_path().to_string_lossy());
             context.append_path(file)?;
         }
     }
