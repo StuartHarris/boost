@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
-cargo build
+
+set -euo pipefail
+
 mkdir -p dist
-cp target/debug/boost dist/
+
+cargo build && cp target/debug/boost dist/

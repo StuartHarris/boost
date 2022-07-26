@@ -1,14 +1,12 @@
-use crate::config::Output;
+use crate::config::{self, Output};
 use color_eyre::Result;
 use globset::{Glob, GlobSetBuilder};
 use ignore::WalkBuilder;
 use std::{fs::File, path::Path};
 use tar::Builder;
 
-const OUTPUT_TAR_FILE: &str = "output.tar";
-
 pub fn write_archive(outputs: &[Output], cache_dir: &Path) -> Result<()> {
-    let file = File::create(&cache_dir.join(OUTPUT_TAR_FILE))?;
+    let file = File::create(&cache_dir.join(config::OUTPUT_TAR_FILE))?;
     let mut context = Builder::new(file);
 
     for ouput in outputs {

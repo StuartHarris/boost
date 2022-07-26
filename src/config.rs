@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+pub const OUTPUT_COLORS_TXT_FILE: &str = "output-colors.txt";
+pub const OUTPUT_PLAIN_TXT_FILE: &str = "output.txt";
+pub const OUTPUT_TAR_FILE: &str = "output.tar";
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub inputs: Vec<Input>,

@@ -1,16 +1,14 @@
 // inspired by @fasterthanlime's brilliant post https://fasterthanli.me/articles/a-terminal-case-of-linux
 // and Jakub Kądziołka's great follow up https://compilercrim.es/amos-nerdsniped-me/
 
+use crate::config;
 use color_eyre::eyre::Result;
+use std::io::Write;
 use std::{convert::TryFrom, path::Path};
-use tokio::{
-    fs::File,
-    io::{AsyncReadExt, AsyncWriteExt},
-    process::Command,
-};
+use tokio::{io::AsyncReadExt, process::Command};
 use tokio_fd::AsyncFd;
 
-pub async fn run(command: &str, output_path: &Path) -> Result<()> {
+pub async fn run(command: &str, cache_dir: &Path) -> Result<()> {
     let (primary_fd, secondary_fd) = openpty();
 
     let mut cmd = Command::new("/bin/sh");
@@ -48,8 +46,14 @@ pub async fn run(command: &str, output_path: &Path) -> Result<()> {
     }
 
     println!();
-    let mut output = File::create(output_path).await?;
-    output.write_all(&out[..]).await?;
+
+    let mut output = std::fs::File::create(cache_dir.join(config::OUTPUT_COLORS_TXT_FILE))?;
+    output.write_all(&out[..])?;
+
+    let output = std::fs::File::create(cache_dir.join(config::OUTPUT_PLAIN_TXT_FILE))?;
+    let mut writer = strip_ansi_escapes::Writer::new(output);
+    writer.write_all(&out[..])?;
+
     Ok(())
 }
 
