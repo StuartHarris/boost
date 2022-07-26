@@ -3,8 +3,8 @@
 
 use crate::config;
 use color_eyre::eyre::Result;
-use std::io::Write;
 use std::{convert::TryFrom, path::Path};
+use std::{fs::File, io::Write};
 use tokio::{io::AsyncReadExt, process::Command};
 use tokio_fd::AsyncFd;
 
@@ -24,35 +24,34 @@ pub async fn run(command: &str, cache_dir: &Path) -> Result<()> {
     };
     let mut child = cmd.spawn()?;
 
-    let mut out = vec![];
+    let mut writer_colors = File::create(cache_dir.join(config::OUTPUT_COLORS_TXT_FILE))?;
+    let output_plain = File::create(cache_dir.join(config::OUTPUT_PLAIN_TXT_FILE))?;
+    let mut writer_plain = strip_ansi_escapes::Writer::new(output_plain);
+
     let mut buf = vec![0u8; 1024];
     let mut primary = AsyncFd::try_from(primary_fd)?;
 
-    loop {
+    'outer: loop {
         tokio::select! {
             n = primary.read(&mut buf) => {
                 let n = n?;
                 let slice = &buf[..n];
+
                 let s = std::str::from_utf8(slice)?;
                 print!("{}", s);
-                out.extend_from_slice(slice);
+
+                writer_colors.write_all(slice)?;
+                writer_plain.write_all(slice)?;
             },
 
             status = child.wait() => {
                 status?;
-                break
+                break 'outer
             },
         }
     }
 
     println!();
-
-    let mut output = std::fs::File::create(cache_dir.join(config::OUTPUT_COLORS_TXT_FILE))?;
-    output.write_all(&out[..])?;
-
-    let output = std::fs::File::create(cache_dir.join(config::OUTPUT_PLAIN_TXT_FILE))?;
-    let mut writer = strip_ansi_escapes::Writer::new(output);
-    writer.write_all(&out[..])?;
 
     Ok(())
 }
