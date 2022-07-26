@@ -12,6 +12,7 @@ keywords = ["cli", "ci", "cache", "task"]
 
 [dependencies]
 b2sum-rs = "0.1.1"
+bytesize = "1.1.0"
 clap = { version = "3.2.12", features = ["derive"] }
 color-eyre = "0.6.2"
 crossbeam = "0.8.2"

@@ -58,6 +58,10 @@ async fn main() -> Result<()> {
         f.read_to_string(&mut buffer).await?;
 
         println!("{}", buffer);
+
+        if let Some(outputs) = config.outputs {
+            archive::read_archive(&outputs, cache_dir)?;
+        }
     } else {
         info!("no cache found, executing \"{}\"\n", &config.run);
 
@@ -65,6 +69,8 @@ async fn main() -> Result<()> {
         let cache_dir = path
             .parent()
             .expect("manifest should have parent directory");
+
+        // TODO: investigate why this doesn't catch a process exit with status > 0
         command_runner::run(&config.run, cache_dir).await?;
 
         if let Some(outputs) = config.outputs {

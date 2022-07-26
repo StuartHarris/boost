@@ -3,8 +3,7 @@
 
 use crate::config;
 use color_eyre::eyre::Result;
-use std::{convert::TryFrom, path::Path};
-use std::{fs::File, io::Write};
+use std::{convert::TryFrom, fs::File, io::Write, path::Path};
 use tokio::{io::AsyncReadExt, process::Command};
 use tokio_fd::AsyncFd;
 
