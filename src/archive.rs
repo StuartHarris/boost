@@ -41,23 +41,26 @@ pub fn read_archive(outputs: &[Output], cache_dir: &Path) -> Result<()> {
         fs::create_dir_all(&ouput.root)?;
     }
 
-    let file = File::open(cache_dir.join(config::OUTPUT_TAR_FILE))?;
-    let mut a = Archive::new(file);
+    if let Ok(file) = File::open(cache_dir.join(config::OUTPUT_TAR_FILE)) {
+        let mut a = Archive::new(file);
 
-    for file in a.entries()? {
-        // Make sure there wasn't an I/O error
-        let mut in_file = file?;
+        for file in a.entries()? {
+            // Make sure there wasn't an I/O error
+            let mut in_file = file?;
 
-        let path = in_file.header().path()?;
+            let path = in_file.header().path()?;
 
-        info!(
-            "restoring {:?} ({})",
-            path,
-            bytesize::ByteSize(in_file.header().size()?)
-        );
+            info!(
+                "restoring {:?} ({})",
+                path,
+                bytesize::ByteSize(in_file.header().size()?)
+            );
 
-        let mut out_file = File::create(path)?;
-        copy(&mut in_file, &mut out_file)?;
+            let mut out_file = File::create(path)?;
+            copy(&mut in_file, &mut out_file)?;
+        }
+    } else {
+        info!("no archive found");
     }
 
     Ok(())

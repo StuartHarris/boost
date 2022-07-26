@@ -2,7 +2,7 @@
 // and Jakub Kądziołka's great follow up https://compilercrim.es/amos-nerdsniped-me/
 
 use crate::config;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{bail, Result};
 use std::{convert::TryFrom, fs::File, io::Write, path::Path};
 use tokio::{io::AsyncReadExt, process::Command};
 use tokio_fd::AsyncFd;
@@ -30,7 +30,7 @@ pub async fn run(command: &str, cache_dir: &Path) -> Result<()> {
     let mut buf = vec![0u8; 1024];
     let mut primary = AsyncFd::try_from(primary_fd)?;
 
-    'outer: loop {
+    loop {
         tokio::select! {
             n = primary.read(&mut buf) => {
                 let n = n?;
@@ -44,8 +44,16 @@ pub async fn run(command: &str, cache_dir: &Path) -> Result<()> {
             },
 
             status = child.wait() => {
-                status?;
-                break 'outer
+                match status {
+                    Ok(s) => {
+                        if s.success() {
+                            break;
+                        } else {
+                            bail!("command failed with {}", s)
+                        }
+                    }
+                    Err(e) => bail!(e),
+                }
             },
         }
     }
