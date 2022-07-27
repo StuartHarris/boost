@@ -3,7 +3,7 @@ run = "./build.sh"
 
 [[inputs]]
 root = "."
-filters = ["src/**", "Cargo.*"]
+filters = ["*"]
 commands = ["rustc -vV"]
 env_vars = ["TEST"]
 

@@ -14,7 +14,7 @@ use crate::{
 };
 use clap::Parser;
 use color_eyre::eyre::{Context, Result};
-use duration::{format_duration, Lowest};
+use duration::format_duration;
 use std::{
     env, fs,
     path::PathBuf,
@@ -43,10 +43,7 @@ async fn main() -> Result<()> {
 
     let current = Hash::new(&config.inputs, &file, env::args())?;
     if let Some((path, previous)) = Manifest::read(&current)? {
-        let ago = format_duration(
-            SystemTime::now().duration_since(previous.created)?,
-            Lowest::Seconds,
-        );
+        let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
         info!("found local cache from {ago} ago, reprinting output...\n");
 
         let cache_dir = path
@@ -78,10 +75,7 @@ async fn main() -> Result<()> {
         }
     };
 
-    info!(
-        "Finished in {}",
-        format_duration(Instant::now() - start, Lowest::MilliSeconds)
-    );
+    info!("Finished in {}", format_duration(Instant::now() - start));
 
     Ok(())
 }
