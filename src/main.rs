@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
         .wrap_err_with(|| format!("opening {}", &args.file.to_string_lossy()))?;
     let config: Config = toml::from_slice(&file).wrap_err("parsing TOML")?;
 
-    let current = Hash::new(&config.inputs, &file, env::args())?;
+    let current = Hash::new(&config.input, &file, env::args())?;
     if let Some((path, previous)) = Manifest::read(&current)? {
         let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
         info!("found local cache from {ago} ago, reprinting output...\n");
@@ -56,8 +56,8 @@ async fn main() -> Result<()> {
 
         println!("{}", buffer);
 
-        if let Some(outputs) = config.outputs {
-            archive::read_archive(&outputs, cache_dir)?;
+        if let Some(output) = config.output {
+            archive::read_archive(&output.files.unwrap_or_default(), cache_dir)?;
         }
     } else {
         info!("no cache found, executing \"{}\"\n", &config.run);
@@ -70,8 +70,8 @@ async fn main() -> Result<()> {
         // TODO: investigate why this doesn't catch a process exit with status > 0
         command_runner::run(&config.run, cache_dir).await?;
 
-        if let Some(outputs) = config.outputs {
-            archive::write_archive(&outputs, cache_dir)?;
+        if let Some(output) = config.output {
+            archive::write_archive(&output.files.unwrap_or_default(), cache_dir)?;
         }
     };
 

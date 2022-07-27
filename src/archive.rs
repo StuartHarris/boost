@@ -1,4 +1,5 @@
-use crate::config::{self, Output};
+use crate::config::{self, Selectors};
+use bytesize::ByteSize;
 use color_eyre::Result;
 use globset::{Glob, GlobSetBuilder};
 use ignore::WalkBuilder;
@@ -9,18 +10,18 @@ use std::{
 };
 use tar::{Archive, Builder};
 
-pub fn write_archive(outputs: &[Output], cache_dir: &Path) -> Result<()> {
+pub fn write_archive(selectors: &[Selectors], cache_dir: &Path) -> Result<()> {
     let file = File::create(cache_dir.join(config::OUTPUT_TAR_FILE))?;
     let mut context = Builder::new(file);
 
-    for ouput in outputs {
+    for selector in selectors {
         let mut builder = GlobSetBuilder::new();
-        for filter in &ouput.filters {
+        for filter in &selector.filters {
             builder.add(Glob::new(filter)?);
         }
         let filters = builder.build()?;
 
-        for file in WalkBuilder::new(&ouput.root)
+        for file in WalkBuilder::new(&selector.root)
             .hidden(false)
             .ignore(false)
             .build()
@@ -36,9 +37,9 @@ pub fn write_archive(outputs: &[Output], cache_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn read_archive(outputs: &[Output], cache_dir: &Path) -> Result<()> {
-    for ouput in outputs {
-        fs::create_dir_all(&ouput.root)?;
+pub fn read_archive(selectors: &[Selectors], cache_dir: &Path) -> Result<()> {
+    for selector in selectors {
+        fs::create_dir_all(&selector.root)?;
     }
 
     if let Ok(file) = File::open(cache_dir.join(config::OUTPUT_TAR_FILE)) {
@@ -53,7 +54,7 @@ pub fn read_archive(outputs: &[Output], cache_dir: &Path) -> Result<()> {
             info!(
                 "restoring {:?} ({})",
                 path,
-                bytesize::ByteSize(in_file.header().size()?)
+                ByteSize(in_file.header().size()?)
             );
 
             let mut out_file = File::create(path)?;

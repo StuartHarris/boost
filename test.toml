@@ -1,7 +1,9 @@
 description = "Test boost"
 run = "cargo test"
 
-[[inputs]]
+[input]
+invariants = ["rustc --vV"]
+
+[[input.files]]
 root = "."
 filters = ["*"]
-commands = ["rustc --vV"]

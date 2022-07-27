@@ -89,15 +89,15 @@ This is for running unit tests, so we don't need an `[[outputs]]` section.
 - [ ] Metadata in toml config e.g.
   - [ ] name
   - [ ] description
-- [ ] Refactor input and output config
-  - [ ] input.files (each has root and filters).
-  - [ ] input.env_vars
-  - [ ] input.invariants (was commands)
-  - [ ] output.files (root, filters).
+- [x] Refactor input and output config
+  - [x] input.files (each has root and filters)
+  - [x] input.env_vars
+  - [x] input.invariants (was commands)
+  - [x] output.files (each has root and filters)
 - [x] Stores and retrieves locally
 - [x] Hash must include
   - [x] config toml
   - [x] command line arguments
 - [x] Inputs from running user defined command like `rustc -vV`
-  - [ ] Call these invariants
+  - [x] Call these invariants
 - [x] Handle failures

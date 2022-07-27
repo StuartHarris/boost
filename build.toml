@@ -1,12 +1,15 @@
 description = "Build boost"
 run = "./build.sh"
 
-[[inputs]]
-root = "."
-filters = ["*"]
-commands = ["rustc -vV"]
+[input]
+invariants = ["rustc -vV"]
 env_vars = ["TEST"]
 
-[[outputs]]
+# these are the defaults so you could miss this section out...
+[[input.files]]
+root = "."
+filters = ["*"]
+
+[[output.files]]
 root = "dist"
 filters = ["dist/boost"]

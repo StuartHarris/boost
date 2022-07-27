@@ -71,17 +71,18 @@ impl Manifest {
 }
 
 impl Hash {
-    pub fn new(inputs: &[Input], config_file: &[u8], process_args: Args) -> Result<Self> {
+    pub fn new(input: &Input, config_file: &[u8], process_args: Args) -> Result<Self> {
         let context = Blake2bSum::new(16);
         let mut all: Vec<u8> = Vec::new();
-        for input in inputs {
+        let selectors = input.files.to_owned().unwrap_or_default();
+        for selector in selectors {
             let mut builder = GlobSetBuilder::new();
-            for filter in &input.filters {
+            for filter in &selector.filters {
                 builder.add(Glob::new(filter)?);
             }
             let filters = builder.build()?;
 
-            for file in Walk::new(&input.root)
+            for file in Walk::new(&selector.root)
                 .flatten()
                 .map(|f| f.into_path())
                 .filter(|f| f.is_file() && filters.is_match(f))
@@ -90,7 +91,7 @@ impl Hash {
                 all.extend(Blake2bSum::as_bytes(&hex));
             }
 
-            if let Some(commands) = &input.commands {
+            if let Some(commands) = &input.invariants {
                 for command in commands {
                     let out = Command::new("sh").args(["-c", command]).output()?;
                     all.extend_from_slice(out.stdout.as_slice());
