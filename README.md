@@ -93,7 +93,7 @@ This is for running unit tests, so we don't need an `[output]` section.
   - [x] “found local cache from 10mins ago”
 - [ ] Stores and retrieves remotely
 - [ ] S3 compatible (can use Garage for on-prem)
-- [ ] Set executable bit on retrieved files
+- [x] Set executable bit on retrieved files (transfer the mode)
 - [ ] Imports (include hash from dependent boosts in the current boost’s hash)
 - [ ] Add ignore filter to input.files
 - [x] Metadata in toml config e.g.

@@ -4,8 +4,9 @@ use color_eyre::Result;
 use globset::{Glob, GlobSetBuilder};
 use ignore::WalkBuilder;
 use std::{
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::copy,
+    os::unix::prelude::OpenOptionsExt,
     path::Path,
 };
 use tar::{Archive, Builder};
@@ -57,7 +58,12 @@ pub fn read_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
                 ByteSize(in_file.header().size()?)
             );
 
-            let mut out_file = File::create(path)?;
+            let mode = in_file.header().mode()?;
+            let mut out_file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .mode(mode)
+                .open(path)?;
             copy(&mut in_file, &mut out_file)?;
         }
     } else {

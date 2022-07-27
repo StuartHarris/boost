@@ -43,13 +43,12 @@ impl Manifest {
     }
 
     pub fn read(hash: &Hash) -> Result<Option<(PathBuf, Self)>> {
-        fs::create_dir_all(CACHE_DIR)?;
-        let path = PathBuf::from_str(CACHE_DIR)?.join(hash).join(MANIFEST);
+        let path = hash.create_cache_dir()?.join(MANIFEST);
         if let Ok(mut f) = File::open(&path) {
-            let mut s = String::new();
-            f.read_to_string(&mut s)
+            let mut buf = String::new();
+            f.read_to_string(&mut buf)
                 .wrap_err_with(|| format!("reading {}", path.to_string_lossy()))?;
-            let manifest = serde_json::from_str(&s)?;
+            let manifest = serde_json::from_str(&buf)?;
             Ok(Some((path, manifest)))
         } else {
             Ok(None)
