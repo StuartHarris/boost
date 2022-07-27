@@ -52,6 +52,11 @@ async fn main() -> Result<()> {
         .wrap_err_with(|| format!("opening {}", &args.file.to_string_lossy()))?;
     let config: Config = toml::from_slice(&file).wrap_err("parsing TOML")?;
 
+    info!(
+        "found config \"{}\"",
+        config.description.as_deref().unwrap_or("<no description>")
+    );
+
     let args: Vec<String> = env::args().collect();
     let current = Hash::new(&config.input, &file, &args)?;
     if let Some((path, previous)) = Manifest::read(&current)? {
@@ -79,7 +84,6 @@ async fn main() -> Result<()> {
             .parent()
             .expect("manifest should have parent directory");
 
-        // TODO: investigate why this doesn't catch a process exit with status > 0
         command_runner::run(&config.run, cache_dir).await?;
 
         if let Some(output) = config.output {

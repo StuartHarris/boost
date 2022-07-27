@@ -86,9 +86,8 @@ This is for running unit tests, so we don't need an `[[outputs]]` section.
 - [ ] Stores and retrieves remotely
 - [ ] Set executable bit on retrieved files
 - [ ] Imports (include hash from dependent boosts in the current boost’s hash)
-- [ ] Metadata in toml config e.g.
-  - [ ] name
-  - [ ] description
+- [x] Metadata in toml config e.g.
+  - [x] description
 - [x] Refactor input and output config
   - [x] input.files (each has root and filters)
   - [x] input.env_vars

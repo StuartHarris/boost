@@ -6,6 +6,7 @@ pub const OUTPUT_TAR_FILE: &str = "output.tar";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
+    pub description: Option<String>,
     pub run: String,
     pub input: Input,
     pub output: Option<Output>,
