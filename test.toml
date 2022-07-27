@@ -4,4 +4,4 @@ run = "cargo test"
 [[inputs]]
 root = "."
 filters = ["*"]
-commands = ["rustc --version"]
+commands = ["rustc --vV"]
