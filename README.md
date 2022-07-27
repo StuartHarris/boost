@@ -38,13 +38,15 @@ Here is a file to build boost itself ([`build.toml`](./build.toml)).
 description = "Build boost"
 run = "./build.sh"
 
-[[inputs]]
-root = "."
-filters = ["*"]
-commands = ["rustc -vV"]
+[input]
+invariants = ["rustc -vV"]
 env_vars = ["TEST"]
 
-[[outputs]]
+[[input.files]]
+root = "."
+filters = ["./src/**", "./Cargo.*"]
+
+[[output.files]]
 root = "dist"
 filters = ["dist/boost"]
 ```
@@ -63,10 +65,13 @@ For another example, see [`test.toml`](./test.toml).
 description = "Test boost"
 run = "cargo test"
 
-[[inputs]]
+[input]
+invariants = ["rustc --vV"]
+
+# these are the defaults, so you could miss this out if you want to
+[[input.files]]
 root = "."
 filters = ["*"]
-commands = ["rustc --vV"]
 ```
 
 This is for running unit tests, so we don't need an `[[outputs]]` section.
@@ -86,6 +91,7 @@ This is for running unit tests, so we don't need an `[[outputs]]` section.
 - [ ] Stores and retrieves remotely
 - [ ] Set executable bit on retrieved files
 - [ ] Imports (include hash from dependent boosts in the current boost’s hash)
+- [ ] Add ignore filter to inputs.files
 - [x] Metadata in toml config e.g.
   - [x] description
 - [x] Refactor input and output config

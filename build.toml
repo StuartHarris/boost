@@ -8,6 +8,8 @@ env_vars = ["TEST"]
 [[input.files]]
 root = "."
 filters = ["./src/**", "./Cargo.*"]
+# not implemented yet, but on it's way...
+ignores = ["./docs"]
 
 [[output.files]]
 root = "dist"
