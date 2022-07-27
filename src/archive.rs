@@ -1,4 +1,4 @@
-use crate::config::{self, Selectors};
+use crate::config::{self, Selector};
 use bytesize::ByteSize;
 use color_eyre::Result;
 use globset::{Glob, GlobSetBuilder};
@@ -10,7 +10,7 @@ use std::{
 };
 use tar::{Archive, Builder};
 
-pub fn write_archive(selectors: &[Selectors], cache_dir: &Path) -> Result<()> {
+pub fn write_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
     let file = File::create(cache_dir.join(config::OUTPUT_TAR_FILE))?;
     let mut context = Builder::new(file);
 
@@ -37,7 +37,7 @@ pub fn write_archive(selectors: &[Selectors], cache_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn read_archive(selectors: &[Selectors], cache_dir: &Path) -> Result<()> {
+pub fn read_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
     for selector in selectors {
         fs::create_dir_all(&selector.root)?;
     }

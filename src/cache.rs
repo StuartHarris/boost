@@ -1,11 +1,11 @@
-use crate::config::{Config, Input};
+use crate::config::{Config, Input, Selector};
 use b2sum_rs::Blake2bSum;
 use color_eyre::eyre::{Context, Result};
 use globset::{Glob, GlobSetBuilder};
 use ignore::Walk;
 use serde::{Deserialize, Serialize};
 use std::{
-    env::{self, Args},
+    env,
     fs::{self, File, OpenOptions},
     io::{BufWriter, Read},
     path::{Path, PathBuf},
@@ -71,10 +71,13 @@ impl Manifest {
 }
 
 impl Hash {
-    pub fn new(input: &Input, config_file: &[u8], process_args: Args) -> Result<Self> {
+    pub fn new(input: &Input, config_file: &[u8], process_args: &[String]) -> Result<Self> {
         let context = Blake2bSum::new(16);
         let mut all: Vec<u8> = Vec::new();
-        let selectors = input.files.to_owned().unwrap_or_default();
+        let selectors = input
+            .files
+            .to_owned()
+            .unwrap_or_else(|| vec![Selector::default()]);
         for selector in selectors {
             let mut builder = GlobSetBuilder::new();
             for filter in &selector.filters {
@@ -87,28 +90,35 @@ impl Hash {
                 .map(|f| f.into_path())
                 .filter(|f| f.is_file() && filters.is_match(f))
             {
-                let hex = context.read(file);
+                let hex = context.read(&file);
+                debug!("input file: {:?}", file);
                 all.extend(Blake2bSum::as_bytes(&hex));
             }
 
             if let Some(commands) = &input.invariants {
                 for command in commands {
                     let out = Command::new("sh").args(["-c", command]).output()?;
-                    all.extend_from_slice(out.stdout.as_slice());
+                    let out = out.stdout.as_slice();
+                    debug!("input command: {}\n{}", command, std::str::from_utf8(out)?);
+                    all.extend_from_slice(out);
                 }
             }
 
             if let Some(env) = &input.env_vars {
                 for var in env {
                     if let Ok(val) = env::var(var) {
+                        debug!("env var: {} {}", var, val);
                         all.extend_from_slice(val.as_bytes());
                     }
                 }
             }
         }
+
+        debug!("config {:?}", std::str::from_utf8(config_file));
         all.extend_from_slice(config_file);
 
-        let args: String = process_args.skip(1).collect();
+        let args = process_args[1..].join(" ");
+        debug!("process_args: {}", args);
         all.extend_from_slice(args.as_bytes());
 
         Ok(Self(context.read_bytes(&all)))

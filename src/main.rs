@@ -28,20 +28,32 @@ struct Args {
     /// name of TOML configuration file
     #[clap(short, long, value_parser)]
     file: PathBuf,
+    /// log with level DEBUG
+    #[clap(short, long, value_parser)]
+    verbose: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    sensible_env_logger::init_timed!();
     color_eyre::install()?;
+
     let args = Args::parse();
+
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info");
+    }
+    if args.verbose {
+        env::set_var("RUST_LOG", "trace");
+    }
+    sensible_env_logger::init_timed!();
 
     let start = Instant::now();
     let file = fs::read(&args.file)
         .wrap_err_with(|| format!("opening {}", &args.file.to_string_lossy()))?;
     let config: Config = toml::from_slice(&file).wrap_err("parsing TOML")?;
 
-    let current = Hash::new(&config.input, &file, env::args())?;
+    let args: Vec<String> = env::args().collect();
+    let current = Hash::new(&config.input, &file, &args)?;
     if let Some((path, previous)) = Manifest::read(&current)? {
         let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
         info!("found local cache from {ago} ago, reprinting output...\n");

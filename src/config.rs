@@ -13,23 +13,33 @@ pub struct Config {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Input {
-    pub files: Option<Vec<Selectors>>,
+    pub files: Option<Vec<Selector>>,
     pub invariants: Option<Vec<String>>,
     pub env_vars: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Output {
-    pub files: Option<Vec<Selectors>>,
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            files: Some(vec![Selector::default()]),
+            invariants: Default::default(),
+            env_vars: Default::default(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Selectors {
+pub struct Output {
+    pub files: Option<Vec<Selector>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Selector {
     pub root: String,
     pub filters: Vec<String>,
 }
 
-impl Default for Selectors {
+impl Default for Selector {
     fn default() -> Self {
         Self {
             root: ".".to_string(),
