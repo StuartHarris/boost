@@ -1,11 +1,13 @@
 use std::time::Duration;
 
 pub fn format_duration(duration: Duration) -> String {
-    let duration = duration.as_secs_f64();
-    if duration > 60.0 {
-        format!("{}m {:.2}s", duration as u32 / 60, duration % 60.0)
+    let secs = duration.as_secs_f64();
+    if secs > 60.0 * 60.0 {
+        format!("{}h {:.0}m", secs as u32 / (60 * 60), secs / 60.0 % 60.0)
+    } else if secs > 60.0 {
+        format!("{}m {:.0}s", secs as u32 / 60, secs % 60.0)
     } else {
-        format!("{:.2}s", duration)
+        format!("{:.2}s", secs)
     }
 }
 
@@ -20,9 +22,14 @@ mod test {
 
     #[test]
     fn format_minutes() {
+        assert_eq!(format_duration(Duration::from_millis(2021300)), "33m 41s");
+    }
+
+    #[test]
+    fn format_hours() {
         assert_eq!(
-            format_duration(Duration::from_millis(2021300)),
-            "33m 41.30s"
+            format_duration(Duration::from_secs((2 * 60 * 60) + (40 * 60) + 21)),
+            "2h 40m"
         );
     }
 }
