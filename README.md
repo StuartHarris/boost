@@ -8,7 +8,7 @@ Tools such as [TurboRepo](https://turborepo.org/), [Nx](https://nx.dev/) and [Ba
 
 We should use these tools wherever possible because everyone wins — we get faster feedback and the planet thanks us because the energy required to recompute the outputs is not used.
 
-These tools are big though, and in some cases require an all-in commitment (Bazel, as brilliant as it is, takes over your native toolchain). Also they can be quite ecosystem specific (TurboRepo does work in a Rust monorepo, but you have to include `package.json` files everywhere, which doesn't make me happy). All of them seem to be designed to work in a monorepo (I love a monorepo by the way).
+These tools are big though, and in some cases require an all-in commitment (Bazel, as brilliant as it is, takes over your native toolchain). Also they can be quite ecosystem specific (TurboRepo does work in a Rust monorepo, but you have to include `package.json` files everywhere, which doesn't spark joy). All of them seem to be designed to work in a monorepo (I love a monorepo by the way).
 
 It struck me that what we need is a "small, sharp tool" that "does one thing, and does it well", as per the UNIX Philosophy. Hence Boost. Boost only runs a command if any of the declared inputs have changed since a previous run, otherwise it restores the outputs from that previous run.
 
@@ -20,16 +20,9 @@ For now...
 
 ```bash
 > cargo install --git https://github.com/StuartHarris/boost.git
-
-> boost
-error: The following required arguments were not provided:
-    --file <FILE>
-
-USAGE:
-    boost --file <FILE>
-
-For more information try --help
 ```
+
+![help](./docs/boost-help.png)
 
 Soon, we'll publish to crates.io and support homebrew etc.
 
