@@ -19,7 +19,7 @@ That's all it does. So hopefully you can use it easily, in more places, and with
 For now...
 
 ```bash
-> cargo install --git https://github.com/StuartHarris/boost.git
+> cargo install --force --git https://github.com/StuartHarris/boost.git
 ```
 
 ![help](./docs/boost-help.png)
@@ -51,9 +51,13 @@ root = "dist"
 filters = ["dist/boost"]
 ```
 
-When calculating the hash for the cache-key, we visit every file from the root that matches any of the globs, hashing their contents. We also run the commands specified and hash their outputs (currently `stdout`). We also hash the specified environment variables.
+When calculating the hash for the cache-key, we visit every file from the root that matches any of the globs, hashing their contents.
 
-Additionally, the config itself, and the command line arguments being used, all contribute to the hash (and therefore determining if there is a cache hit).
+We also run the specified invariants (commands) and hash their outputs (currently `stdout`). So for instance if you want to make sure your cache is no older than a day, you could specify an invariant of `date +%y-%m-%d`.
+
+We also hash the specified environment variables.
+
+Additionally, the config itself, and the command line arguments being used, all contribute to the hash (and therefore help determine if there is a cache hit).
 
 This means that a change in _any_ of those inputs will result in a new run.
 
@@ -74,13 +78,12 @@ root = "."
 filters = ["*"]
 ```
 
-This is for running unit tests, so we don't need an `[[outputs]]` section.
+This is for running unit tests, so we don't need an `[output]` section.
 
 ![example](./docs/boost2.png)
 
 ## Road map
 
-- [ ] S3 compatible (can use Garage for on-prem)
 - [ ] Picks up compatible toml files from the current directory automatically so that `boost ls` would list available commands. And a build.toml enables “boost build” (as shorthand or “boost run build” in longhand)
 - [ ] Refactor more like onion
 - [ ] More tests
@@ -89,9 +92,10 @@ This is for running unit tests, so we don't need an `[[outputs]]` section.
   - [x] “no cache found”.
   - [x] “found local cache from 10mins ago”
 - [ ] Stores and retrieves remotely
+- [ ] S3 compatible (can use Garage for on-prem)
 - [ ] Set executable bit on retrieved files
 - [ ] Imports (include hash from dependent boosts in the current boost’s hash)
-- [ ] Add ignore filter to inputs.files
+- [ ] Add ignore filter to input.files
 - [x] Metadata in toml config e.g.
   - [x] description
 - [x] Refactor input and output config
