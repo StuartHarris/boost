@@ -1,6 +1,6 @@
 [package]
 name = "boost"
-description = "Run if inputs have changed, otherwise use cache"
+description = "Run tasks if their inputs have changed, otherwise restore their outputs from cache"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"

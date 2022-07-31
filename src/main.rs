@@ -9,7 +9,7 @@ pub mod config;
 mod duration;
 
 use crate::cache::{Hash, Manifest};
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use color_eyre::eyre::Result;
 use duration::format_duration;
 use std::{
@@ -25,20 +25,9 @@ struct Args {
     #[clap(short, long, global(true), parse(from_occurrences))]
     verbose: usize,
 
-    #[clap(subcommand)]
-    action: Option<Action>,
-}
-
-#[derive(Subcommand, Debug)]
-enum Action {
-    /// List all the tasks for which there is a valid configuration file in the current directory
-    List,
-    /// Run the tasks specified (each will expect to find a TOML config file called "<name>.toml")
-    Run {
-        /// tasks to run
-        #[clap(required(true))]
-        tasks: Vec<String>,
-    },
+    /// Run the tasks specified (each will expect to find a TOML config file called "<name>.toml").
+    /// If none specified, list all the tasks for which there is a valid configuration file in the current directory
+    tasks: Vec<String>,
 }
 
 #[tokio::main]
@@ -55,77 +44,68 @@ async fn main() -> Result<()> {
     }
     sensible_env_logger::init_timed!();
 
-    if let Some(action) = args.action {
-        match action {
-            Action::List => {
-                let commands = config::find_all()?;
-                if commands.is_empty() {
-                    info!("no commands found")
-                } else {
-                    info!(
-                        "found commands {}",
-                        commands
-                            .into_iter()
-                            .map(|d| d.name)
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    )
+    if args.tasks.is_empty() {
+        let commands = config::find_all()?;
+        if commands.is_empty() {
+            info!("no commands found")
+        } else {
+            info!(
+                "found commands {}",
+                commands
+                    .into_iter()
+                    .map(|d| d.name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+    } else {
+        for config_file in config::find(&args.tasks)? {
+            let start = Instant::now();
+            let config = config_file.config;
+
+            info!(
+                "using config \"{}\" ({})",
+                config.description.as_deref().unwrap_or("<no description>"),
+                config_file.path.to_string_lossy()
+            );
+
+            let current = Hash::new(&config.input, &config_file.bytes)?;
+            if let Some((path, previous)) = Manifest::read(&current)? {
+                let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
+                info!("found local cache from {ago} ago, reprinting output...\n");
+
+                let cache_dir = path
+                    .parent()
+                    .expect("manifest should have parent directory");
+                let mut f = File::open(&cache_dir.join(config::OUTPUT_COLORS_TXT_FILE)).await?;
+
+                let mut buffer = String::new();
+                f.read_to_string(&mut buffer).await?;
+
+                println!("{}", buffer);
+
+                if let Some(output) = config.output {
+                    archive::read_archive(&output.files.unwrap_or_default(), cache_dir)?;
                 }
-                return Ok(());
-            }
-            Action::Run { tasks } => {
-                for config_file in config::find(&tasks)? {
-                    let start = Instant::now();
-                    let config = config_file.config;
+            } else {
+                info!("no cache found, executing \"{}\"\n", &config.run);
 
-                    info!(
-                        "using config \"{}\" ({})",
-                        config.description.as_deref().unwrap_or("<no description>"),
-                        config_file.path.to_string_lossy()
-                    );
+                let path = Manifest::new(current, &config).write()?;
+                let cache_dir = path
+                    .parent()
+                    .expect("manifest should have parent directory");
 
-                    let args: Vec<String> = env::args().collect();
-                    let current = Hash::new(&config.input, &config_file.bytes, &args)?;
-                    if let Some((path, previous)) = Manifest::read(&current)? {
-                        let ago =
-                            format_duration(SystemTime::now().duration_since(previous.created)?);
-                        info!("found local cache from {ago} ago, reprinting output...\n");
+                command_runner::run(&config.run, cache_dir).await?;
 
-                        let cache_dir = path
-                            .parent()
-                            .expect("manifest should have parent directory");
-                        let mut f =
-                            File::open(&cache_dir.join(config::OUTPUT_COLORS_TXT_FILE)).await?;
-
-                        let mut buffer = String::new();
-                        f.read_to_string(&mut buffer).await?;
-
-                        println!("{}", buffer);
-
-                        if let Some(output) = config.output {
-                            archive::read_archive(&output.files.unwrap_or_default(), cache_dir)?;
-                        }
-                    } else {
-                        info!("no cache found, executing \"{}\"\n", &config.run);
-
-                        let path = Manifest::new(current, &config).write()?;
-                        let cache_dir = path
-                            .parent()
-                            .expect("manifest should have parent directory");
-
-                        command_runner::run(&config.run, cache_dir).await?;
-
-                        if let Some(output) = config.output {
-                            archive::write_archive(&output.files.unwrap_or_default(), cache_dir)?;
-                        }
-                    };
-                    info!(
-                        "Finished {}, in {}",
-                        config_file.name,
-                        format_duration(Instant::now() - start)
-                    );
+                if let Some(output) = config.output {
+                    archive::write_archive(&output.files.unwrap_or_default(), cache_dir)?;
                 }
-            }
+            };
+            info!(
+                "Finished {}, in {}",
+                config_file.name,
+                format_duration(Instant::now() - start)
+            );
         }
     }
 

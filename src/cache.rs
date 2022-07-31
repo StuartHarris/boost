@@ -70,7 +70,7 @@ impl Manifest {
 }
 
 impl Hash {
-    pub fn new(input: &Input, config_file: &[u8], process_args: &[String]) -> Result<Self> {
+    pub fn new(input: &Input, config_file: &[u8]) -> Result<Self> {
         let context = Blake2bSum::new(16);
         let mut all: Vec<u8> = Vec::new();
         let selectors = input
@@ -115,10 +115,6 @@ impl Hash {
 
         debug!("config {:?}", std::str::from_utf8(config_file));
         all.extend_from_slice(config_file);
-
-        let args = process_args[1..].join(" ");
-        debug!("process_args: {}", args);
-        all.extend_from_slice(args.as_bytes());
 
         Ok(Self(context.read_bytes(&all)))
     }

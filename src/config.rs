@@ -80,14 +80,14 @@ pub fn find_all() -> Result<Vec<ConfigFile>> {
 }
 
 /// return configuration files for the specified commands
-pub fn find<T>(filter: &[T]) -> Result<Vec<ConfigFile>>
+pub fn find<T>(tasks: &[T]) -> Result<Vec<ConfigFile>>
 where
     T: AsRef<str> + Display,
 {
-    filter
+    tasks
         .iter()
-        .map(|command| {
-            let path = command.as_ref().to_string() + ".toml";
+        .map(|task| {
+            let path = task.as_ref().to_string() + ".toml";
             let path = Path::new(&path);
             try_read_config(path)
         })
