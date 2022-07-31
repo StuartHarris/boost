@@ -4,4 +4,4 @@ set -euo pipefail
 
 mkdir -p dist
 
-cargo build && cp target/debug/boost dist/
+cargo build --release && cp target/debug/boost dist/

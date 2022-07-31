@@ -1,6 +1,6 @@
 [package]
 name = "boost"
-description = "Run if inputs have changed, otherwise use cache"
+description = "Run tasks if their inputs have changed, otherwise restore their outputs from cache"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -13,7 +13,7 @@ keywords = ["cli", "ci", "cache", "task"]
 [dependencies]
 b2sum-rs = "0.1.1"
 bytesize = "1.1.0"
-clap = { version = "3.2.12", features = ["derive"] }
+clap = { version = "3.2.16", features = ["derive"] }
 color-eyre = "0.6.2"
 crossbeam = "0.8.2"
 globset = "0.4.9"
@@ -23,11 +23,11 @@ libc = "0.2.126"
 log = "0.4.17"
 regex = "1.6.0"
 sensible-env-logger = { version = "0.2.0", features = ["local-time"] }
-serde = { version = "1.0.139", features = ["derive"] }
+serde = { version = "1.0.140", features = ["derive"] }
 serde_json = "1.0.82"
 strip-ansi-escapes = "0.1.1"
 tar = "0.4.38"
-tokio = { version = "1.20.0", features = ["full"] }
+tokio = { version = "1.20.1", features = ["full"] }
 tokio-fd = "0.3.0"
 toml = "0.5.9"
 

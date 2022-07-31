@@ -4,7 +4,6 @@ run = "cargo test"
 [input]
 invariants = ["rustc --vV"]
 
-# these are the defaults, so you could miss this out if you want to
 [[input.files]]
 root = "."
-filters = ["*"]
+filters = ["./src/**", "./Cargo.*"]
