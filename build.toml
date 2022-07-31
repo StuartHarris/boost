@@ -7,7 +7,7 @@ env_vars = ["TEST"]
 
 [[input.files]]
 root = "."
-filters = ["./src/**", "./Cargo.*"]
+filters = ["./src/**", "./Cargo.*", "./build.sh"]
 # not implemented yet, but on it's way...
 ignores = ["./docs"]
 

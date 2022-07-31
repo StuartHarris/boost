@@ -1,8 +1,23 @@
+use color_eyre::eyre::{Context, Result};
+use std::{
+    fmt::Display,
+    fs,
+    path::{Path, PathBuf},
+};
+
 use serde::{Deserialize, Serialize};
 
 pub const OUTPUT_COLORS_TXT_FILE: &str = "output-colors.txt";
 pub const OUTPUT_PLAIN_TXT_FILE: &str = "output.txt";
 pub const OUTPUT_TAR_FILE: &str = "output.tar";
+
+#[derive(Clone, Debug)]
+pub struct ConfigFile {
+    pub config: Config,
+    pub name: String,
+    pub bytes: Vec<u8>,
+    pub path: PathBuf,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
@@ -46,5 +61,53 @@ impl Default for Selector {
             root: ".".to_string(),
             filters: vec!["*".to_string()],
         }
+    }
+}
+
+/// find all the parsable configuration files in the current directory
+pub fn find_all() -> Result<Vec<ConfigFile>> {
+    let found = fs::read_dir(".")?
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.extension().unwrap_or_default() != "toml" {
+                return None;
+            }
+            try_read_config(&path).ok()
+        })
+        .collect();
+    Ok(found)
+}
+
+/// return configuration files for the specified commands
+pub fn find<T>(filter: &[T]) -> Result<Vec<ConfigFile>>
+where
+    T: AsRef<str> + Display,
+{
+    filter
+        .iter()
+        .map(|command| {
+            let path = command.as_ref().to_string() + ".toml";
+            let path = Path::new(&path);
+            try_read_config(path)
+        })
+        .collect::<Result<Vec<_>>>()
+}
+
+fn try_read_config(path: &Path) -> Result<ConfigFile> {
+    match fs::read(path).wrap_err_with(|| format!("opening {}", path.to_string_lossy())) {
+        Ok(bytes) => match toml::from_slice::<Config>(&bytes).wrap_err("parsing TOML") {
+            Ok(config) => Ok(ConfigFile {
+                config,
+                name: path
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+                bytes,
+                path: path.into(),
+            }),
+            Err(e) => Err(e),
+        },
+        Err(e) => Err(e),
     }
 }
