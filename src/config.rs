@@ -7,10 +7,6 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-pub const OUTPUT_COLORS_TXT_FILE: &str = "output-colors.txt";
-pub const OUTPUT_PLAIN_TXT_FILE: &str = "output.txt";
-pub const OUTPUT_TAR_FILE: &str = "output.tar";
-
 #[derive(Clone, Debug)]
 pub struct ConfigFile {
     pub config: Config,
@@ -70,10 +66,11 @@ pub fn find_all() -> Result<Vec<ConfigFile>> {
         .flatten()
         .filter_map(|entry| {
             let path = entry.path();
-            if path.extension().unwrap_or_default() != "toml" {
-                return None;
+            if path.extension().unwrap_or_default() == "toml" {
+                try_read_config(&path).ok()
+            } else {
+                None
             }
-            try_read_config(&path).ok()
         })
         .collect();
     Ok(found)

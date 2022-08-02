@@ -50,10 +50,11 @@ async fn main() -> Result<()> {
             info!("no commands found")
         } else {
             info!(
-                "found commands {}",
+                "found command{} {}",
+                if commands.len() == 1 { "" } else { "s" },
                 commands
                     .into_iter()
-                    .map(|d| d.name)
+                    .map(|d| format!("\"{}\"", d.name))
                     .collect::<Vec<_>>()
                     .join(", ")
             )
@@ -63,6 +64,7 @@ async fn main() -> Result<()> {
             let start = Instant::now();
             let config = config_file.config;
 
+            println!();
             info!(
                 "using config \"{}\" ({})",
                 config.description.as_deref().unwrap_or("<no description>"),
@@ -77,7 +79,7 @@ async fn main() -> Result<()> {
                 let cache_dir = path
                     .parent()
                     .expect("manifest should have parent directory");
-                let mut f = File::open(&cache_dir.join(config::OUTPUT_COLORS_TXT_FILE)).await?;
+                let mut f = File::open(&cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
 
                 let mut buffer = String::new();
                 f.read_to_string(&mut buffer).await?;

@@ -1,14 +1,14 @@
 // inspired by @fasterthanlime's brilliant post https://fasterthanli.me/articles/a-terminal-case-of-linux
 // and Jakub Kądziołka's great follow up https://compilercrim.es/amos-nerdsniped-me/
 
-use crate::config;
+use crate::cache;
 use color_eyre::eyre::{bail, Result};
 use std::{convert::TryFrom, fs::File, io::Write, path::Path};
 use tokio::{io::AsyncReadExt, process::Command};
 use tokio_fd::AsyncFd;
 
 pub async fn run(command: &str, cache_dir: &Path) -> Result<()> {
-    let (primary_fd, secondary_fd) = openpty();
+    let (primary_fd, secondary_fd) = open_terminal();
 
     let mut cmd = Command::new("/bin/sh");
     cmd.args(["-c", command]);
@@ -23,8 +23,8 @@ pub async fn run(command: &str, cache_dir: &Path) -> Result<()> {
     };
     let mut child = cmd.spawn()?;
 
-    let mut writer_colors = File::create(cache_dir.join(config::OUTPUT_COLORS_TXT_FILE))?;
-    let output_plain = File::create(cache_dir.join(config::OUTPUT_PLAIN_TXT_FILE))?;
+    let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE))?;
+    let output_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE))?;
     let mut writer_plain = strip_ansi_escapes::Writer::new(output_plain);
 
     let mut buf = vec![0u8; 1024];
@@ -63,7 +63,7 @@ pub async fn run(command: &str, cache_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn openpty() -> (i32, i32) {
+fn open_terminal() -> (i32, i32) {
     let mut primary_fd: i32 = -1;
     let mut secondary_fd: i32 = -1;
     unsafe {
