@@ -1,11 +1,10 @@
 use color_eyre::eyre::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     fs,
     path::{Path, PathBuf},
 };
-
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
 pub struct ConfigFile {

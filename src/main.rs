@@ -7,8 +7,10 @@ mod cache;
 mod command_runner;
 pub mod config;
 mod duration;
+mod tasks;
 
 use crate::cache::{Hash, Manifest};
+use atty::Stream;
 use clap::Parser;
 use color_eyre::eyre::Result;
 use duration::format_duration;
@@ -17,6 +19,7 @@ use std::{
     time::{Instant, SystemTime},
 };
 use tokio::{fs::File, io::AsyncReadExt};
+use yansi::Paint;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -32,6 +35,10 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if !atty::is(Stream::Stdout) {
+        Paint::disable();
+    }
+
     color_eyre::install()?;
 
     let args = Args::parse();
@@ -45,20 +52,7 @@ async fn main() -> Result<()> {
     sensible_env_logger::init_timed!();
 
     if args.tasks.is_empty() {
-        let commands = config::find_all()?;
-        if commands.is_empty() {
-            info!("no commands found")
-        } else {
-            info!(
-                "found command{} {}",
-                if commands.len() == 1 { "" } else { "s" },
-                commands
-                    .into_iter()
-                    .map(|d| format!("\"{}\"", d.name))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        }
+        tasks::show()?;
     } else {
         for config_file in config::find(&args.tasks)? {
             let start = Instant::now();
