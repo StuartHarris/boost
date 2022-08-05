@@ -14,6 +14,12 @@ It struck me that what we need is a "small, sharp tool" that "does one thing, an
 
 That's all it does. So hopefully you can use it easily, in more places, and without (yet) going all-in on a bigger tool.
 
+## Great for CI pipelines
+
+Wrapping tasks in your CI/CD pipelines with `boost` will always remain simple, easy, and non-intrusive. It will only work, though, for "pure" tasks, i.e. deterministic tasks that will always produce the same outputs given the same inputs. In our opinion all pipelines should be like this anyway.
+
+If there is anything non-deterministic in your pipeline (e.g. a potentially variable environment), you can capture it with the `invariants` in the task's config. This will ensure that the right cache key is used. The `env_vars` and `input.files` config sections are essentially specializations of `invariants` that should be useful (but ultimately could be expressed as invariants for the same result: e.g. `invariants = ["echo $TEST"]` has the same effect as `env_vars = ["TEST"]`).
+
 ## Installing Boost
 
 For now...
@@ -90,9 +96,16 @@ This is for running unit tests, so we don't need an `[output]` section.
 
 ## Coming soon
 
-- [ ] Imports (include the hashes from dependent boosts in the current boost’s hash)
-- [ ] Stores and retrieves remotely
-- [ ] S3 compatible (can use Garage for on-prem)
-- [ ] Says
-  - [ ] “found cache in eu-west-1 from 3 days ago”
-- [ ] Add ignore filter to input.files
+- [ ] imports, e.g. `dependsOn` (include the hashes from dependent boosts in the current boost’s hash)
+- [ ] green credentials
+  - [ ] aggregate time saved and other stats (e.g at cache root)
+  - [ ] ask to share these (anonymously and publicly)
+  - [ ] link to e.g. ["Principles of Green Software Engineering"](https://principles.green/)
+  - [ ] add a section to the readme with examples of potential carbon cost savings
+- [ ] remote cache
+  - [ ] S3 compatible (can use e.g. [Garage](https://garagehq.deuxfleurs.fr/) for on-prem)
+  - [ ] output e.g. "`found cache in eu-west-1 from 3 days ago`"
+  - [ ] atomic writes, optimistic concurrency
+- [ ] add ignore filter to `input.files`
+- [ ] cache cleanup, e.g. rolling removal of old cache items
+- [ ] configurable options
