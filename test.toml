@@ -1,6 +1,9 @@
 description = "Test boost"
 run = "cargo test"
 
+[[depends_on]]
+name = "build"
+
 [input]
 invariants = ["rustc --vV"]
 

@@ -18,8 +18,20 @@ pub struct ConfigFile {
 pub struct Config {
     pub description: Option<String>,
     pub run: String,
+    pub depends_on: Option<Vec<DependsOn>>,
     pub input: Input,
     pub output: Option<Output>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct DependsOn {
+    pub name: Option<String>,
+}
+
+impl Display for DependsOn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name.clone().unwrap_or_default())
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

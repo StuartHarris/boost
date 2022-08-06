@@ -8,6 +8,8 @@ struct Task {
     name: String,
     description: String,
     runs: String,
+    #[tabled(rename = "depends on")]
+    depends_on: String,
 }
 
 pub fn show() -> Result<()> {
@@ -26,6 +28,14 @@ pub fn show() -> Result<()> {
                 name: format!("{} {}", Paint::wrapping(&name).bold(), file),
                 description: t.config.description.unwrap_or_default(),
                 runs: t.config.run,
+                depends_on: t
+                    .config
+                    .depends_on
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
             }
         });
 
