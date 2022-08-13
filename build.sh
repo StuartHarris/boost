@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
-mkdir -p dist
+cargo build --release
 
-cargo build --release && cp target/debug/boost dist/
+mkdir -p dist
+cp target/release/boost dist
