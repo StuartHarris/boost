@@ -1,5 +1,16 @@
-use crate::config;
+use crate::{
+    archive, cache,
+    cache::{Hash, Manifest},
+    command_runner,
+    config_file::{self, ConfigFile},
+    duration,
+};
 use color_eyre::eyre::Result;
+use duration::format_duration;
+use std::{
+    io::Read,
+    time::{Instant, SystemTime},
+};
 use tabled::{object::Columns, Format, Modify, Style, Table, Tabled};
 use yansi::Paint;
 
@@ -13,7 +24,7 @@ struct Task {
 }
 
 pub fn show() -> Result<()> {
-    let configs = config::find_all()?;
+    let configs = config_file::find_all()?;
     if configs.is_empty() {
         println!("no tasks found in the current directory");
     } else {
@@ -22,8 +33,8 @@ pub fn show() -> Result<()> {
         let green = Format::new(|s| Paint::green(s).to_string());
 
         let tasks = configs.into_iter().map(|t| {
-            let name = Paint::cyan(&t.name);
-            let file = Paint::cyan(format!("(./{}.toml)", t.name));
+            let name = Paint::cyan(&t.id);
+            let file = Paint::cyan(format!("(./{}.toml)", t.id));
             Task {
                 name: format!("{} {}", Paint::wrapping(&name).bold(), file),
                 description: t.config.description.unwrap_or_default(),
@@ -49,4 +60,56 @@ pub fn show() -> Result<()> {
         println!("{}\n", table);
     }
     Ok(())
+}
+
+pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
+    let start = Instant::now();
+    let config = &config_file.config;
+
+    println!();
+    info!(
+        "using config \"{}\" ({})",
+        config.description.as_deref().unwrap_or("<no description>"),
+        config_file.path.to_string_lossy()
+    );
+
+    let current = Hash::new(&config.input, &config_file.bytes)?;
+    if let Some((path, previous)) = Manifest::read(&current)? {
+        let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
+
+        info!("found local cache from {ago} ago, reprinting output...\n");
+
+        let cache_dir = path
+            .parent()
+            .expect("manifest should have parent directory");
+        let mut f = std::fs::File::open(&cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE))?;
+
+        let mut buffer = String::new();
+        f.read_to_string(&mut buffer)?;
+
+        println!("{}", buffer);
+
+        if let Some(output) = config.output.as_ref() {
+            archive::read_archive(output.files.as_deref().unwrap_or_default(), cache_dir)?;
+        }
+    } else {
+        info!("no cache found, executing \"{}\"\n", &config.run);
+
+        let path = Manifest::new(current, config).write()?;
+        let cache_dir = path
+            .parent()
+            .expect("manifest should have parent directory");
+
+        command_runner::run(&config.run, cache_dir).await?;
+
+        if let Some(output) = &config.output {
+            archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir)?;
+        }
+    };
+    info!(
+        "Finished {}, in {}",
+        config_file.id,
+        format_duration(Instant::now() - start)
+    );
+    Ok("This is the resulting hash".to_string())
 }

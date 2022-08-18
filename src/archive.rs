@@ -1,4 +1,4 @@
-use crate::{cache, config::Selector};
+use crate::{cache, config_file::Selector};
 use bytesize::ByteSize;
 use color_eyre::Result;
 use globset::{Glob, GlobSetBuilder};

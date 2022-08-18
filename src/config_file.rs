@@ -8,8 +8,9 @@ use std::{
 
 #[derive(Clone, Debug)]
 pub struct ConfigFile {
+    pub id: String,
+    pub parent: Option<String>,
     pub config: Config,
-    pub name: String,
     pub bytes: Vec<u8>,
     pub path: PathBuf,
 }
@@ -71,6 +72,40 @@ impl Default for Selector {
     }
 }
 
+/// recursively find all configuration files
+pub fn build_tree<T>(task_names: &[T]) -> Result<Vec<ConfigFile>>
+where
+    T: AsRef<str> + Display,
+{
+    let mut tree = vec![];
+    for task in task_names {
+        tree_rec(&mut tree, task, None)?;
+    }
+    Ok(tree)
+}
+
+fn tree_rec<T>(tree: &mut Vec<ConfigFile>, task: &T, parent: Option<&T>) -> Result<()>
+where
+    T: AsRef<str> + Display,
+{
+    if !tree.iter().any(|c: &ConfigFile| c.id == task.as_ref()) {
+        let mut config_file = find_one(task)?;
+        config_file.parent = parent.map(|p| p.to_string());
+        if let Some(deps) = &config_file.config.depends_on {
+            let task_names = deps
+                .iter()
+                .flat_map(|d| d.name.clone())
+                .collect::<Vec<String>>();
+            for task in task_names {
+                tree_rec(tree, &task, Some(&config_file.id))?;
+            }
+        }
+        tree.push(config_file);
+    }
+
+    Ok(())
+}
+
 /// find all the parsable configuration files in the current directory
 pub fn find_all() -> Result<Vec<ConfigFile>> {
     let found = fs::read_dir(".")?
@@ -78,7 +113,7 @@ pub fn find_all() -> Result<Vec<ConfigFile>> {
         .filter_map(|entry| {
             let path = entry.path();
             if path.extension().unwrap_or_default() == "toml" {
-                try_read_config(&path).ok()
+                try_read_config_file(&path).ok()
             } else {
                 None
             }
@@ -87,30 +122,26 @@ pub fn find_all() -> Result<Vec<ConfigFile>> {
     Ok(found)
 }
 
-/// return configuration files for the specified commands
-pub fn find<T>(tasks: &[T]) -> Result<Vec<ConfigFile>>
+/// return configuration file for the specified command
+pub fn find_one<T>(task_name: &T) -> Result<ConfigFile>
 where
     T: AsRef<str> + Display,
 {
-    tasks
-        .iter()
-        .map(|task| {
-            let path = task.as_ref().to_string() + ".toml";
-            let path = Path::new(&path);
-            try_read_config(path)
-        })
-        .collect::<Result<Vec<_>>>()
+    let path = task_name.as_ref().to_string() + ".toml";
+    let path = Path::new(&path);
+    try_read_config_file(path)
 }
 
-fn try_read_config(path: &Path) -> Result<ConfigFile> {
+fn try_read_config_file(path: &Path) -> Result<ConfigFile> {
     match fs::read(path).wrap_err_with(|| format!("opening {}", path.to_string_lossy())) {
         Ok(bytes) => match toml::from_slice::<Config>(&bytes).wrap_err("parsing TOML") {
             Ok(config) => Ok(ConfigFile {
-                config,
-                name: path
+                id: path
                     .file_stem()
                     .map(|s| s.to_string_lossy().to_string())
                     .unwrap_or_default(),
+                parent: None,
+                config,
                 bytes,
                 path: path.into(),
             }),

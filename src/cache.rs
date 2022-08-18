@@ -1,4 +1,4 @@
-use crate::config::{Config, Input, Selector};
+use crate::config_file::{Config, Input, Selector};
 use b2sum_rs::Blake2bSum;
 use color_eyre::eyre::{Context, Result};
 use globset::{Glob, GlobSetBuilder};
