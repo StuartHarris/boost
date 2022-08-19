@@ -4,7 +4,7 @@ extern crate lazy_static;
 
 mod archive;
 mod cache;
-mod command_runner;
+mod command_runner_plugin;
 mod config_file;
 mod duration;
 mod task_plugin;
@@ -16,6 +16,7 @@ use bevy_hierarchy::HierarchyPlugin;
 use bevy_internal::MinimalPlugins;
 use clap::Parser;
 use color_eyre::eyre::Result;
+use command_runner_plugin::CommandRunnerPlugin;
 use std::env;
 use task_plugin::TaskPlugin;
 use yansi::Paint;
@@ -56,10 +57,10 @@ fn main() -> Result<()> {
         App::new()
             .add_plugins(MinimalPlugins)
             .add_plugin(HierarchyPlugin)
+            .add_plugin(CommandRunnerPlugin)
             .insert_resource(config)
             .add_plugin(TaskPlugin)
             .run();
-        // tasks::run_task(&args.tasks).await?;
     }
 
     Ok(())

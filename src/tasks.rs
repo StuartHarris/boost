@@ -1,7 +1,7 @@
 use crate::{
     archive, cache,
     cache::{Hash, Manifest},
-    command_runner,
+    command_runner_plugin::CommandRunner,
     config_file::{self, ConfigFile},
     duration,
 };
@@ -62,7 +62,7 @@ pub fn show() -> Result<()> {
     Ok(())
 }
 
-pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
+pub async fn run_task(config_file: &ConfigFile, runner: &CommandRunner) -> Result<String> {
     let start = Instant::now();
     let config = &config_file.config;
 
@@ -100,7 +100,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
             .parent()
             .expect("manifest should have parent directory");
 
-        command_runner::run(&config.run, cache_dir).await?;
+        runner.run(&config.run, cache_dir).await?;
 
         if let Some(output) = &config.output {
             archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir)?;

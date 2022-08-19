@@ -2,16 +2,50 @@
 // and Jakub Kądziołka's great follow up https://compilercrim.es/amos-nerdsniped-me/
 
 use crate::cache;
+use bevy_app::{App, Plugin};
 use color_eyre::eyre::{bail, Result};
-use std::{convert::TryFrom, fs::File, io::Write, path::Path};
-use tokio::{io::AsyncReadExt, process::Command};
+use std::{
+    convert::TryFrom,
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+};
+use tokio::{io::AsyncReadExt, process::Command, runtime::Runtime};
 use tokio_fd::AsyncFd;
 
-pub async fn run(command: &str, cache_dir: &Path) -> Result<()> {
+pub struct CommandRunnerPlugin;
+impl Plugin for CommandRunnerPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(CommandRunner::new());
+    }
+}
+
+pub struct CommandRunner {
+    runtime: Runtime,
+}
+
+impl CommandRunner {
+    pub(crate) fn new() -> CommandRunner {
+        CommandRunner {
+            runtime: tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect("Could not build tokio runtime"),
+        }
+    }
+
+    pub(crate) async fn run(&self, command: &str, cache_dir: &Path) -> Result<()> {
+        let command = command.to_owned();
+        let cache_dir = cache_dir.to_owned();
+        self.runtime.spawn(run(command, cache_dir)).await.unwrap()
+    }
+}
+
+async fn run(command: String, cache_dir: PathBuf) -> Result<()> {
     let (primary_fd, secondary_fd) = open_terminal();
 
     let mut cmd = Command::new("/bin/sh");
-    cmd.args(["-c", command]);
+    cmd.args(["-c", &command]);
 
     unsafe {
         cmd.pre_exec(move || {
