@@ -1,4 +1,4 @@
-use crate::{command_runner_plugin::CommandRunner, config_file::ConfigFile, tasks};
+use crate::{config_file::ConfigFile, tasks};
 use bevy_app::{App, AppExit, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{BuildChildren, Children, Parent};
@@ -100,10 +100,8 @@ fn start_tasks(
     mut q_child: Query<(Entity, &Parent, &Name), With<Ready>>,
     q_parent: Query<&Name>,
     config: Res<Vec<ConfigFile>>,
-    runner: Res<&'static CommandRunner>,
 ) {
     let thread_pool = AsyncComputeTaskPool::get();
-    let runner = *runner;
     for (child, parent, child_name) in &mut q_child {
         if let Ok(parent_name) = q_parent.get(parent.get()) {
             let parent_name = parent_name.0.clone();
@@ -114,8 +112,7 @@ fn start_tasks(
                 .cloned()
                 .find(|c| c.id == child_name && c.parent.as_ref() == Some(&parent_name))
             {
-                let task =
-                    thread_pool.spawn(async move { tasks::run_task(&config_file, runner).await });
+                let task = thread_pool.spawn(async move { tasks::run_task(&config_file).await });
                 commands.entity(child).remove::<Ready>();
                 commands.entity(child).insert(Run(task));
             }

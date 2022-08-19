@@ -1,7 +1,7 @@
 use crate::{
     archive, cache,
     cache::{Hash, Manifest},
-    command_runner_plugin::CommandRunner,
+    command_runner::CommandRunner,
     config_file::{self, ConfigFile},
     duration,
 };
@@ -62,7 +62,7 @@ pub fn show() -> Result<()> {
     Ok(())
 }
 
-pub async fn run_task(config_file: &ConfigFile, runner: &CommandRunner) -> Result<String> {
+pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
     let start = Instant::now();
     let config = &config_file.config;
 
@@ -100,6 +100,7 @@ pub async fn run_task(config_file: &ConfigFile, runner: &CommandRunner) -> Resul
             .parent()
             .expect("manifest should have parent directory");
 
+        let runner = CommandRunner::get();
         runner.run(&config.run, cache_dir).await?;
 
         if let Some(output) = &config.output {

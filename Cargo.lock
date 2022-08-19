@@ -497,6 +497,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
+ "once_cell",
  "sensible-env-logger",
  "serde",
  "serde_json",

@@ -2,8 +2,8 @@
 // and Jakub Kądziołka's great follow up https://compilercrim.es/amos-nerdsniped-me/
 
 use crate::cache;
-use bevy_app::{App, Plugin};
 use color_eyre::eyre::{bail, Result};
+use once_cell::sync::OnceCell;
 use std::{
     convert::TryFrom,
     fs::File,
@@ -13,25 +13,32 @@ use std::{
 use tokio::{io::AsyncReadExt, process::Command, runtime::Runtime};
 use tokio_fd::AsyncFd;
 
-pub struct CommandRunnerPlugin;
-impl Plugin for CommandRunnerPlugin {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(CommandRunner::new());
-    }
-}
+static RUNNER: OnceCell<CommandRunner> = OnceCell::new();
 
 pub struct CommandRunner {
     runtime: Runtime,
 }
 
 impl CommandRunner {
-    pub(crate) fn new() -> CommandRunner {
-        CommandRunner {
+    /// Initializes the global [`CommandRunner`] instance.
+    pub fn init() -> &'static Self {
+        RUNNER.get_or_init(|| Self {
             runtime: tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
                 .expect("Could not build tokio runtime"),
-        }
+        })
+    }
+
+    /// Gets the global [`CommandRunner`] instance.
+    ///
+    /// # Panics
+    /// Panics if the CommandRunner has been initialized yet.
+    pub fn get() -> &'static Self {
+        RUNNER.get().expect(
+            "A CommandRunner has not been initialized yet. Please call \
+                    CommandRunner::init beforehand.",
+        )
     }
 
     pub(crate) async fn run(&self, command: &str, cache_dir: &Path) -> Result<()> {
