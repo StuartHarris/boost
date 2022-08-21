@@ -95,28 +95,21 @@ fn make_ready(
     }
 }
 
+type ReadyChildren = (With<Ready>, With<Parent>);
+
 fn start_tasks(
     mut commands: Commands,
-    mut q_child: Query<(Entity, &Parent, &Name), With<Ready>>,
-    q_parent: Query<&Name>,
+    mut q_child: Query<(Entity, &Name), ReadyChildren>,
     config: Res<Vec<ConfigFile>>,
 ) {
     let thread_pool = AsyncComputeTaskPool::get();
-    for (child, parent, child_name) in &mut q_child {
-        if let Ok(parent_name) = q_parent.get(parent.get()) {
-            let parent_name = parent_name.0.clone();
-            let child_name = child_name.0.clone();
-            println!("starting {child_name}");
-            if let Some(config_file) = config
-                .iter()
-                .cloned()
-                .find(|c| c.id == child_name && c.parent.as_ref() == Some(&parent_name))
-            {
-                let task = thread_pool.spawn(async move { tasks::run_task(&config_file).await });
-                commands.entity(child).remove::<Ready>();
-                commands.entity(child).insert(Run(task));
-            }
-        };
+    for (child, child_name) in &mut q_child {
+        let child_name = child_name.0.clone();
+        if let Some(config_file) = config.iter().cloned().find(|c| c.id == child_name) {
+            let task = thread_pool.spawn(async move { tasks::run_task(&config_file).await });
+            commands.entity(child).remove::<Ready>();
+            commands.entity(child).insert(Run(task));
+        }
     }
 }
 

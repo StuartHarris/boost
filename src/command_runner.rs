@@ -44,7 +44,8 @@ impl CommandRunner {
     pub(crate) async fn run(&self, command: &str, cache_dir: &Path) -> Result<()> {
         let command = command.to_owned();
         let cache_dir = cache_dir.to_owned();
-        self.runtime.spawn(run(command, cache_dir)).await.unwrap()
+        self.runtime.block_on(run(command, cache_dir))?;
+        Ok(())
     }
 }
 
