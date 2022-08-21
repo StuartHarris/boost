@@ -1,18 +1,16 @@
 use crate::config_file::{Config, Input, Selector};
-use async_std::fs::{self, File, OpenOptions};
+use async_std::{
+    fs::{self, File, OpenOptions},
+    path::{Path, PathBuf},
+    process::Command,
+};
 use b2sum_rs::Blake2bSum;
 use color_eyre::eyre::{Context, Result};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use globset::{Glob, GlobSetBuilder};
 use ignore::Walk;
 use serde::{Deserialize, Serialize};
-use std::{
-    env,
-    path::{Path, PathBuf},
-    process::Command,
-    str::FromStr,
-    time::SystemTime,
-};
+use std::{env, str::FromStr, time::SystemTime};
 
 const CACHE_DIR: &str = ".boost";
 const MANIFEST: &str = "manifest.json";
@@ -77,7 +75,7 @@ impl Manifest {
 }
 
 impl Hash {
-    pub fn new(input: &Input, config_file: &[u8]) -> Result<Self> {
+    pub async fn new(input: &Input, config_file: &[u8]) -> Result<Self> {
         let context = Blake2bSum::new(16);
         let mut all: Vec<u8> = Vec::new();
         let selectors = input
@@ -103,7 +101,7 @@ impl Hash {
 
             if let Some(commands) = &input.invariants {
                 for command in commands {
-                    let out = Command::new("sh").args(["-c", command]).output()?;
+                    let out = Command::new("sh").args(["-c", command]).output().await?;
                     let out = out.stdout.as_slice();
                     debug!("input command: {}\n{}", command, std::str::from_utf8(out)?);
                     all.extend_from_slice(out);

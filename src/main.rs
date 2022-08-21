@@ -32,7 +32,8 @@ struct Args {
     tasks: Vec<String>,
 }
 
-fn main() -> Result<()> {
+#[async_std::main]
+async fn main() -> Result<()> {
     if !atty::is(Stream::Stdout) {
         Paint::disable();
     }
@@ -50,9 +51,9 @@ fn main() -> Result<()> {
     sensible_env_logger::init_timed!();
 
     if args.tasks.is_empty() {
-        tasks::show()?;
+        tasks::show().await?;
     } else {
-        let config = config_file::build_tree(&args.tasks)?;
+        let config = config_file::build_tree(&args.tasks).await?;
         App::new()
             .add_plugins(MinimalPlugins)
             .add_plugin(HierarchyPlugin)

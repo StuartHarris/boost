@@ -1,10 +1,11 @@
-use color_eyre::eyre::{Context, Result};
-use serde::{Deserialize, Serialize};
-use std::{
-    fmt::Display,
+use async_std::{
     fs,
     path::{Path, PathBuf},
 };
+use color_eyre::eyre::{Context, Result};
+use futures_lite::StreamExt;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Clone, Debug)]
 pub struct ConfigFile {
@@ -73,23 +74,25 @@ impl Default for Selector {
 }
 
 /// recursively find all configuration files
-pub fn build_tree<T>(task_names: &[T]) -> Result<Vec<ConfigFile>>
+pub async fn build_tree<T>(task_names: &[T]) -> Result<Vec<ConfigFile>>
 where
-    T: AsRef<str> + Display,
+    T: AsRef<str> + Display + Sync,
 {
     let mut tree = vec![];
     for task in task_names {
-        tree_rec(&mut tree, task, None)?;
+        tree_rec(&mut tree, task, None).await?;
     }
     Ok(tree)
 }
 
-fn tree_rec<T>(tree: &mut Vec<ConfigFile>, task: &T, parent: Option<&T>) -> Result<()>
+#[async_recursion::async_recursion]
+async fn tree_rec<'a, T>(tree: &mut Vec<ConfigFile>, task: &T, parent: Option<&'a T>) -> Result<()>
 where
-    T: AsRef<str> + Display,
+    T: AsRef<str> + Display + Sync,
+    'a: 'async_recursion,
 {
     if !tree.iter().any(|c: &ConfigFile| c.id == task.as_ref()) {
-        let mut config_file = find_one(task)?;
+        let mut config_file = find_one(task).await?;
         config_file.parent = parent.map(|p| p.to_string());
         if let Some(deps) = &config_file.config.depends_on {
             let task_names = deps
@@ -97,7 +100,7 @@ where
                 .flat_map(|d| d.name.clone())
                 .collect::<Vec<String>>();
             for task in task_names {
-                tree_rec(tree, &task, Some(&config_file.id))?;
+                tree_rec(tree, &task, Some(&config_file.id)).await?;
             }
         }
         tree.push(config_file);
@@ -107,33 +110,36 @@ where
 }
 
 /// find all the parsable configuration files in the current directory
-pub fn find_all() -> Result<Vec<ConfigFile>> {
-    let found = fs::read_dir(".")?
-        .flatten()
-        .filter_map(|entry| {
-            let path = entry.path();
-            if path.extension().unwrap_or_default() == "toml" {
-                try_read_config_file(&path).ok()
-            } else {
-                None
+pub async fn find_all() -> Result<Vec<ConfigFile>> {
+    let mut entries = fs::read_dir(".").await?;
+    let mut found = vec![];
+    while let Some(entry) = entries.next().await {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().unwrap_or_default() == "toml" {
+            if let Ok(cfg) = try_read_config_file(&path).await {
+                found.push(cfg)
             }
-        })
-        .collect();
+        }
+    }
     Ok(found)
 }
 
 /// return configuration file for the specified command
-pub fn find_one<T>(task_name: &T) -> Result<ConfigFile>
+pub async fn find_one<T>(task_name: &T) -> Result<ConfigFile>
 where
     T: AsRef<str> + Display,
 {
     let path = task_name.as_ref().to_string() + ".toml";
     let path = Path::new(&path);
-    try_read_config_file(path)
+    try_read_config_file(path).await
 }
 
-fn try_read_config_file(path: &Path) -> Result<ConfigFile> {
-    match fs::read(path).wrap_err_with(|| format!("opening {}", path.to_string_lossy())) {
+async fn try_read_config_file(path: &Path) -> Result<ConfigFile> {
+    match fs::read(path)
+        .await
+        .wrap_err_with(|| format!("opening {}", path.to_string_lossy()))
+    {
         Ok(bytes) => match toml::from_slice::<Config>(&bytes).wrap_err("parsing TOML") {
             Ok(config) => Ok(ConfigFile {
                 id: path

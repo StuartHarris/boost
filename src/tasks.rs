@@ -22,8 +22,8 @@ struct Task {
     depends_on: String,
 }
 
-pub fn show() -> Result<()> {
-    let configs = config_file::find_all()?;
+pub async fn show() -> Result<()> {
+    let configs = config_file::find_all().await?;
     if configs.is_empty() {
         println!("no tasks found in the current directory");
     } else {
@@ -74,7 +74,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
         config_file.path.to_string_lossy()
     );
 
-    let current = Hash::new(&config.input, &config_file.bytes)?;
+    let current = Hash::new(&config.input, &config_file.bytes).await?;
     if let Some((path, previous)) = Manifest::read(&current).await? {
         let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
 
@@ -102,7 +102,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
             .expect("manifest should have parent directory");
 
         let runner = CommandRunner::get();
-        runner.run(&config.run, cache_dir).await?;
+        runner.run(&config.run, cache_dir.into()).await?;
 
         if let Some(output) = &config.output {
             archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir).await?;

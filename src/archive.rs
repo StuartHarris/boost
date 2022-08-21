@@ -2,6 +2,7 @@ use crate::{cache, config_file::Selector};
 use async_std::{
     fs::{self, File, OpenOptions},
     os::unix::fs::OpenOptionsExt,
+    path::Path,
 };
 use async_tar::{Archive, Builder};
 use bytesize::ByteSize;
@@ -9,7 +10,6 @@ use color_eyre::Result;
 use futures_lite::{io::copy, StreamExt};
 use globset::{Glob, GlobSetBuilder};
 use ignore::WalkBuilder;
-use std::path::Path;
 
 pub async fn write_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
     let file = File::create(cache_dir.join(cache::OUTPUT_TAR_FILE)).await?;
