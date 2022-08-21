@@ -1,6 +1,8 @@
 // inspired by @fasterthanlime's brilliant post https://fasterthanli.me/articles/a-terminal-case-of-linux
 // and Jakub Kądziołka's great follow up https://compilercrim.es/amos-nerdsniped-me/
 
+// Currently this needs tokio, and bevy is async_std, so...
+
 use crate::cache;
 use color_eyre::eyre::{bail, Result};
 use once_cell::sync::OnceCell;

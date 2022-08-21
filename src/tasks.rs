@@ -66,9 +66,11 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
     let start = Instant::now();
     let config = &config_file.config;
 
+    let label = Paint::cyan(&config_file.id).bold();
+
     println!();
     info!(
-        "using config \"{}\" ({})",
+        "{label}: using config \"{}\" ({})",
         config.description.as_deref().unwrap_or("<no description>"),
         config_file.path.to_string_lossy()
     );
@@ -77,7 +79,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
     if let Some((path, previous)) = Manifest::read(&current)? {
         let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
 
-        info!("found local cache from {ago} ago, reprinting output...\n");
+        info!("{label}: found local cache from {ago} ago, reprinting output...\n");
 
         let cache_dir = path
             .parent()
@@ -93,7 +95,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
             archive::read_archive(output.files.as_deref().unwrap_or_default(), cache_dir)?;
         }
     } else {
-        info!("no cache found, executing \"{}\"\n", &config.run);
+        info!("{label}: no cache found, executing \"{}\"\n", &config.run);
 
         let path = Manifest::new(current, config).write()?;
         let cache_dir = path
@@ -108,8 +110,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
         }
     };
     info!(
-        "Finished {}, in {}",
-        config_file.id,
+        "{label}: Finished in {}",
         format_duration(Instant::now() - start)
     );
     Ok("This is the resulting hash".to_string())

@@ -4,6 +4,9 @@ run = "cargo test"
 [[depends_on]]
 name = "build"
 
+[[depends_on]]
+name = "build2"
+
 [input]
 invariants = ["rustc --vV"]
 

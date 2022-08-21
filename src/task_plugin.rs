@@ -1,10 +1,10 @@
-use crate::{config_file::ConfigFile, tasks};
+use crate::{command_runner::CommandRunner, config_file::ConfigFile, tasks};
 use bevy_app::{App, AppExit, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{BuildChildren, Children, Parent};
 use bevy_tasks::{AsyncComputeTaskPool, Task};
 use bevy_time::FixedTimestep;
-use bevy_utils::{prelude::*, HashMap};
+use bevy_utils::HashMap;
 use color_eyre::eyre::Result;
 use futures_lite::future;
 
@@ -26,16 +26,11 @@ struct Run(Task<Result<String>>);
 #[derive(Component)]
 struct Done;
 
-#[derive(Bundle, Default)]
-struct TaskBundle {
-    name: Name,
-    _p: Instance,
-}
-
 pub struct TaskPlugin;
 
 impl Plugin for TaskPlugin {
     fn build(&self, app: &mut App) {
+        CommandRunner::init();
         app.add_startup_system(add_tasks).add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.1))
@@ -50,25 +45,19 @@ impl Plugin for TaskPlugin {
 fn add_tasks(mut commands: Commands, config: Res<Vec<ConfigFile>>) {
     let mut entities = HashMap::new();
 
-    for config_file in config.iter() {
-        let parent = if let Some(parent) = &config_file.parent {
-            parent
-        } else {
-            "root"
-        };
-        for k in [parent, &config_file.id] {
+    // add all entities
+    for config_file in &*config {
+        let parent = config_file.parent.as_deref().unwrap_or("root");
+        for name in [parent, &config_file.id] {
             entities
-                .entry(k)
-                .or_insert_with(|| commands.spawn_bundle(make_task(k)).id());
+                .entry(name)
+                .or_insert_with(|| commands.spawn().insert(Name(name.to_string())).id());
         }
     }
 
-    for config_file in config.iter() {
-        let parent = if let Some(parent) = &config_file.parent {
-            parent
-        } else {
-            "root"
-        };
+    // create hierarchy
+    for config_file in &*config {
+        let parent = config_file.parent.as_deref().unwrap_or("root");
         commands
             .entity(*entities.get(parent).unwrap())
             .push_children(&[*entities.get(&config_file.id.as_ref()).unwrap()]);
@@ -130,12 +119,5 @@ fn terminate(
     let all_done = q_running.iter().len() == 1;
     if all_done {
         exit.send(AppExit);
-    }
-}
-
-fn make_task(name: &str) -> TaskBundle {
-    TaskBundle {
-        name: Name(name.to_string()),
-        ..default()
     }
 }
