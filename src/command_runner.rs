@@ -8,11 +8,14 @@ use color_eyre::eyre::{bail, Result};
 use once_cell::sync::OnceCell;
 use std::{
     convert::TryFrom,
-    fs::File,
-    io::Write,
     path::{Path, PathBuf},
 };
-use tokio::{io::AsyncReadExt, process::Command, runtime::Runtime};
+use tokio::{
+    fs::File,
+    io::{AsyncReadExt, AsyncWriteExt},
+    process::Command,
+    runtime::Runtime,
+};
 use tokio_fd::AsyncFd;
 
 static RUNNER: OnceCell<CommandRunner> = OnceCell::new();
@@ -67,9 +70,8 @@ async fn run(command: String, cache_dir: PathBuf) -> Result<()> {
     };
     let mut child = cmd.spawn()?;
 
-    let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE))?;
-    let output_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE))?;
-    let mut writer_plain = strip_ansi_escapes::Writer::new(output_plain);
+    let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
+    let mut writer_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE)).await?;
 
     let mut buf = vec![0u8; 1024];
     let mut primary = AsyncFd::try_from(primary_fd)?;
@@ -83,8 +85,9 @@ async fn run(command: String, cache_dir: PathBuf) -> Result<()> {
                 let s = std::str::from_utf8(slice)?;
                 print!("{}", s);
 
-                writer_colors.write_all(slice)?;
-                writer_plain.write_all(slice)?;
+                writer_colors.write_all(slice).await?;
+                let plain = strip_ansi_escapes::strip(slice)?;
+                writer_plain.write_all(&plain).await?;
             },
 
             status = child.wait() => {

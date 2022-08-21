@@ -75,7 +75,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
     );
 
     let current = Hash::new(&config.input, &config_file.bytes)?;
-    if let Some((path, previous)) = Manifest::read(&current)? {
+    if let Some((path, previous)) = Manifest::read(&current).await? {
         let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
 
         info!("{label}: found local cache from {ago} ago, reprinting output...\n");
@@ -96,7 +96,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
     } else {
         info!("{label}: no cache found, executing \"{}\"\n", &config.run);
 
-        let path = Manifest::new(current, config).write()?;
+        let path = Manifest::new(current, config).write().await?;
         let cache_dir = path
             .parent()
             .expect("manifest should have parent directory");
