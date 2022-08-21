@@ -5,12 +5,11 @@ use crate::{
     config_file::{self, ConfigFile},
     duration,
 };
+use async_std::fs::File;
 use color_eyre::eyre::Result;
 use duration::format_duration;
-use std::{
-    io::Read,
-    time::{Instant, SystemTime},
-};
+use futures_lite::AsyncReadExt;
+use std::time::{Instant, SystemTime};
 use tabled::{object::Columns, Format, Modify, Style, Table, Tabled};
 use yansi::Paint;
 
@@ -84,15 +83,15 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
         let cache_dir = path
             .parent()
             .expect("manifest should have parent directory");
-        let mut f = std::fs::File::open(&cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE))?;
+        let mut f = File::open(&cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
 
         let mut buffer = String::new();
-        f.read_to_string(&mut buffer)?;
+        f.read_to_string(&mut buffer).await?;
 
         println!("{}", buffer);
 
         if let Some(output) = config.output.as_ref() {
-            archive::read_archive(output.files.as_deref().unwrap_or_default(), cache_dir)?;
+            archive::read_archive(output.files.as_deref().unwrap_or_default(), cache_dir).await?;
         }
     } else {
         info!("{label}: no cache found, executing \"{}\"\n", &config.run);
@@ -106,7 +105,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
         runner.run(&config.run, cache_dir).await?;
 
         if let Some(output) = &config.output {
-            archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir)?;
+            archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir).await?;
         }
     };
     info!(
