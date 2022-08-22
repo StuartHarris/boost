@@ -5,11 +5,15 @@ use crate::{
     config_file::{self, ConfigFile},
     duration,
 };
+use async_channel::unbounded;
 use async_std::fs::File;
 use color_eyre::eyre::Result;
 use duration::format_duration;
-use futures_lite::AsyncReadExt;
-use std::time::{Instant, SystemTime};
+use futures_lite::{AsyncReadExt, AsyncWriteExt};
+use std::{
+    str,
+    time::{Instant, SystemTime},
+};
 use tabled::{object::Columns, Format, Modify, Style, Table, Tabled};
 use yansi::Paint;
 
@@ -102,7 +106,19 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
             .expect("manifest should have parent directory");
 
         let runner = CommandRunner::get();
-        runner.run(&config.run, cache_dir.into()).await?;
+        let (tx, rx) = unbounded();
+        let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
+        let mut writer_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE)).await?;
+
+        runner.run(&config.run, tx).await?;
+
+        while let Ok(msg) = rx.recv().await {
+            print!("{}", str::from_utf8(&msg)?);
+
+            writer_colors.write_all(&msg).await?;
+            let plain = strip_ansi_escapes::strip(msg)?;
+            writer_plain.write_all(&plain).await?;
+        }
 
         if let Some(output) = &config.output {
             archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir).await?;

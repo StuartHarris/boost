@@ -3,19 +3,11 @@
 
 // Currently this needs tokio, and bevy is async_std, so...
 
-use crate::cache;
+use async_channel::Sender;
 use color_eyre::eyre::{bail, Result};
 use once_cell::sync::OnceCell;
-use std::{
-    convert::TryFrom,
-    path::{Path, PathBuf},
-};
-use tokio::{
-    fs::File,
-    io::{AsyncReadExt, AsyncWriteExt},
-    process::Command,
-    runtime::Runtime,
-};
+use std::convert::TryFrom;
+use tokio::{io::AsyncReadExt, process::Command, runtime::Runtime};
 use tokio_fd::AsyncFd;
 
 static RUNNER: OnceCell<CommandRunner> = OnceCell::new();
@@ -46,15 +38,14 @@ impl CommandRunner {
         )
     }
 
-    pub(crate) async fn run(&self, command: &str, cache_dir: &Path) -> Result<()> {
+    pub(crate) async fn run(&self, command: &str, sender: Sender<Vec<u8>>) -> Result<()> {
         let command = command.to_owned();
-        let cache_dir = cache_dir.to_owned();
-        self.runtime.block_on(run(command, cache_dir))?;
+        self.runtime.block_on(run(command, sender))?;
         Ok(())
     }
 }
 
-async fn run(command: String, cache_dir: PathBuf) -> Result<()> {
+async fn run(command: String, sender: Sender<Vec<u8>>) -> Result<()> {
     let (primary_fd, secondary_fd) = open_terminal();
 
     let mut cmd = Command::new("/bin/sh");
@@ -70,9 +61,6 @@ async fn run(command: String, cache_dir: PathBuf) -> Result<()> {
     };
     let mut child = cmd.spawn()?;
 
-    let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
-    let mut writer_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE)).await?;
-
     let mut buf = vec![0u8; 1024];
     let mut primary = AsyncFd::try_from(primary_fd)?;
 
@@ -81,13 +69,7 @@ async fn run(command: String, cache_dir: PathBuf) -> Result<()> {
             n = primary.read(&mut buf) => {
                 let n = n?;
                 let slice = &buf[..n];
-
-                let s = std::str::from_utf8(slice)?;
-                print!("{}", s);
-
-                writer_colors.write_all(slice).await?;
-                let plain = strip_ansi_escapes::strip(slice)?;
-                writer_plain.write_all(&plain).await?;
+                sender.send(Vec::from(slice)).await?;
             },
 
             status = child.wait() => {

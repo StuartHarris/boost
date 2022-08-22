@@ -624,6 +624,7 @@ dependencies = [
 name = "boost"
 version = "0.1.0"
 dependencies = [
+ "async-channel",
  "async-recursion",
  "async-std",
  "async-tar",
