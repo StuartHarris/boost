@@ -7,6 +7,7 @@ use crate::{
 };
 use async_channel::unbounded;
 use async_std::fs::File;
+use bevy_tasks::AsyncComputeTaskPool;
 use color_eyre::eyre::Result;
 use duration::format_duration;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
@@ -100,29 +101,45 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
     } else {
         info!("{label}: no cache found, executing \"{}\"\n", &config.run);
 
-        let path = Manifest::new(current, config).write().await?;
-        let cache_dir = path
-            .parent()
-            .expect("manifest should have parent directory");
-
-        let runner = CommandRunner::get();
         let (tx, rx) = unbounded();
-        let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
-        let mut writer_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE)).await?;
 
-        runner.run(&config.run, tx).await?;
+        let pool = AsyncComputeTaskPool::get();
+        pool.scope(|s: &mut bevy_tasks::Scope<'_, Result<()>>| {
+            s.spawn(async move {
+                let runner = CommandRunner::get();
+                runner.run(&config.run, tx).await.unwrap();
+                Ok(())
+            });
+            s.spawn(async move {
+                let path = Manifest::new(current, config).write().await.unwrap();
+                let cache_dir = path
+                    .parent()
+                    .expect("manifest should have parent directory");
+                let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE))
+                    .await
+                    .unwrap();
+                let mut writer_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE))
+                    .await
+                    .unwrap();
 
-        while let Ok(msg) = rx.recv().await {
-            print!("{}", str::from_utf8(&msg)?);
+                while let Ok(msg) = rx.recv().await {
+                    if !msg.is_empty() {
+                        println!("{label}: {}", str::from_utf8(&msg).unwrap());
 
-            writer_colors.write_all(&msg).await?;
-            let plain = strip_ansi_escapes::strip(msg)?;
-            writer_plain.write_all(&plain).await?;
-        }
+                        writer_colors.write_all(&msg).await.unwrap();
+                        let plain = strip_ansi_escapes::strip(msg).unwrap();
+                        writer_plain.write_all(&plain).await.unwrap();
+                    }
+                }
 
-        if let Some(output) = &config.output {
-            archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir).await?;
-        }
+                if let Some(output) = &config.output {
+                    archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir)
+                        .await
+                        .unwrap();
+                }
+                Ok(())
+            });
+        });
     };
     info!(
         "{label}: Finished in {}",
