@@ -118,7 +118,7 @@ pub async fn find_all() -> Result<Vec<ConfigFile>> {
         let path = entry.path();
         if path.extension().unwrap_or_default() == "toml" {
             if let Ok(cfg) = try_read_config_file(&path).await {
-                found.push(cfg)
+                found.push(cfg);
             }
         }
     }

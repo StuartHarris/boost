@@ -4,6 +4,7 @@ use crate::{
     command_runner::CommandRunner,
     config_file::{self, ConfigFile},
     duration,
+    reporter::Reporter,
 };
 use async_channel::unbounded;
 use async_std::fs::File;
@@ -15,7 +16,7 @@ use std::{
     str,
     time::{Instant, SystemTime},
 };
-use tabled::{object::Columns, Format, Modify, Style, Table, Tabled};
+use tabled::Tabled;
 use yansi::Paint;
 
 #[derive(Tabled)]
@@ -32,10 +33,6 @@ pub async fn show() -> Result<()> {
     if configs.is_empty() {
         println!("no tasks found in the current directory");
     } else {
-        let cyan = Format::new(|s| Paint::cyan(s).to_string());
-        let blue = Format::new(|s| Paint::blue(s).to_string());
-        let green = Format::new(|s| Paint::green(s).to_string());
-
         let tasks = configs.into_iter().map(|t| {
             let name = Paint::cyan(&t.id);
             let file = Paint::cyan(format!("(./{}.toml)", t.id));
@@ -54,14 +51,7 @@ pub async fn show() -> Result<()> {
             }
         });
 
-        let table = Table::new(tasks)
-            .with(Style::rounded().lines([(1, Style::modern().get_horizontal())]))
-            .with(Modify::new(Columns::single(0)).with(cyan))
-            .with(Modify::new(Columns::single(1)).with(blue))
-            .with(Modify::new(Columns::new(2..)).with(green));
-
-        println!("\ntasks in the current directory");
-        println!("{}\n", table);
+        Reporter::show_tasks(tasks);
     }
     Ok(())
 }
@@ -69,21 +59,23 @@ pub async fn show() -> Result<()> {
 pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
     let start = Instant::now();
     let config = &config_file.config;
+    let task_id = config_file.id.clone();
 
-    let label = Paint::cyan(&config_file.id).bold();
+    let report = &Reporter::get(&task_id);
 
-    println!();
-    info!(
-        "{label}: using config \"{}\" ({})",
+    report(&format!(
+        "using config \"{}\" ({})",
         config.description.as_deref().unwrap_or("<no description>"),
         config_file.path.to_string_lossy()
-    );
+    ));
 
     let current = Hash::new(&config.input, &config_file.bytes).await?;
     if let Some((path, previous)) = Manifest::read(&current).await? {
         let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
 
-        info!("{label}: found local cache from {ago} ago, reprinting output...\n");
+        report(&format!(
+            "found local cache from {ago} ago, reprinting output...\n"
+        ));
 
         let cache_dir = path
             .parent()
@@ -93,57 +85,54 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
         let mut buffer = String::new();
         f.read_to_string(&mut buffer).await?;
 
-        println!("{}", buffer);
+        report(&buffer.to_string());
 
         if let Some(output) = config.output.as_ref() {
             archive::read_archive(output.files.as_deref().unwrap_or_default(), cache_dir).await?;
         }
     } else {
-        info!("{label}: no cache found, executing \"{}\"\n", &config.run);
+        report(&format!("no cache found, executing \"{}\"\n", &config.run));
 
         let (tx, rx) = unbounded();
 
         let pool = AsyncComputeTaskPool::get();
         pool.scope(|s: &mut bevy_tasks::Scope<'_, Result<()>>| {
-            s.spawn(async move {
-                let runner = CommandRunner::get();
-                runner.run(&config.run, tx).await.unwrap();
-                Ok(())
-            });
-            s.spawn(async move {
-                let path = Manifest::new(current, config).write().await.unwrap();
-                let cache_dir = path
-                    .parent()
-                    .expect("manifest should have parent directory");
-                let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE))
-                    .await
-                    .unwrap();
-                let mut writer_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE))
-                    .await
-                    .unwrap();
-
-                while let Ok(msg) = rx.recv().await {
-                    if !msg.is_empty() {
-                        println!("{label}: {}", str::from_utf8(&msg).unwrap());
-
-                        writer_colors.write_all(&msg).await.unwrap();
-                        let plain = strip_ansi_escapes::strip(msg).unwrap();
-                        writer_plain.write_all(&plain).await.unwrap();
-                    }
-                }
-
-                if let Some(output) = &config.output {
-                    archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir)
-                        .await
-                        .unwrap();
-                }
-                Ok(())
-            });
-        });
+            s.spawn(async move { CommandRunner::get().run(&config.run, tx).await });
+            s.spawn(async move { process_log_stream(current, config, rx, report).await });
+        })
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
     };
-    info!(
-        "{label}: Finished in {}",
+    report(&format!(
+        "Finished in {}",
         format_duration(Instant::now() - start)
-    );
+    ));
     Ok("This is the resulting hash".to_string())
+}
+
+async fn process_log_stream(
+    current: Hash,
+    config: &config_file::Config,
+    rx: async_channel::Receiver<Vec<u8>>,
+    report: &impl Fn(&str),
+) -> Result<()> {
+    let path = Manifest::new(current, config).write().await?;
+    let cache_dir = path
+        .parent()
+        .expect("manifest should have parent directory");
+    let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
+    let mut writer_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE)).await?;
+    while let Ok(msg) = rx.recv().await {
+        if !msg.is_empty() {
+            report(str::from_utf8(&msg)?);
+
+            writer_colors.write_all(&msg).await?;
+            let plain = strip_ansi_escapes::strip(msg)?;
+            writer_plain.write_all(&plain).await?;
+        }
+    }
+    if let Some(output) = &config.output {
+        archive::write_archive(output.files.as_deref().unwrap_or_default(), cache_dir).await?;
+    }
+    Ok(())
 }

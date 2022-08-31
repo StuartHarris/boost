@@ -7,6 +7,7 @@ mod cache;
 mod command_runner;
 mod config_file;
 mod duration;
+mod reporter;
 mod task_plugin;
 mod tasks;
 

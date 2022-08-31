@@ -57,8 +57,8 @@ async fn run(command: String, sender: Sender<Vec<u8>>) -> Result<()> {
                 panic!("couldn't set the controlling terminal or something");
             }
             Ok(())
-        })
-    };
+        });
+    }
     let mut child = cmd.spawn()?;
 
     let mut buf = vec![0u8; 1024];
@@ -87,8 +87,6 @@ async fn run(command: String, sender: Sender<Vec<u8>>) -> Result<()> {
         }
     }
 
-    println!();
-
     Ok(())
 }
 
@@ -106,6 +104,6 @@ fn open_terminal() -> (i32, i32) {
         if ret != 0 {
             panic!("Failed to openpty!");
         }
-    };
+    }
     (primary_fd, secondary_fd)
 }

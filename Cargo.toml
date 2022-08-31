@@ -47,3 +47,7 @@ yansi = "0.5.1"
 
 [profile.dev.package.backtrace]
 opt-level = 3
+
+[profile.release]
+lto = true
+strip = true
