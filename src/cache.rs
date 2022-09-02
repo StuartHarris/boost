@@ -18,8 +18,14 @@ pub const OUTPUT_COLORS_TXT_FILE: &str = "output-colors.txt";
 pub const OUTPUT_PLAIN_TXT_FILE: &str = "output.txt";
 pub const OUTPUT_TAR_FILE: &str = "output.tar";
 
-#[derive(Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, PartialEq, Eq, Clone)]
 pub struct Hash(String);
+
+impl std::fmt::Display for Hash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl AsRef<Path> for Hash {
     fn as_ref(&self) -> &Path {
@@ -35,10 +41,10 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn new(hash: Hash, config: &Config) -> Self {
+    pub fn new(hash: &Hash, config: &Config) -> Self {
         Self {
             created: SystemTime::now(),
-            hash,
+            hash: hash.clone(),
             config: config.clone(),
         }
     }
@@ -75,7 +81,7 @@ impl Manifest {
 }
 
 impl Hash {
-    pub async fn new(input: &Input, config_file: &[u8]) -> Result<Self> {
+    pub async fn new(input: &Input, config_file: &[u8], additional: &[u8]) -> Result<Self> {
         let context = Blake2bSum::new(16);
         let mut all: Vec<u8> = Vec::new();
         let selectors = input
@@ -120,6 +126,7 @@ impl Hash {
 
         debug!("config {:?}", std::str::from_utf8(config_file));
         all.extend_from_slice(config_file);
+        all.extend_from_slice(additional);
 
         Ok(Self(context.read_bytes(&all)))
     }

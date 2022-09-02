@@ -9,10 +9,11 @@ use color_eyre::eyre::Result;
 use futures_lite::future;
 
 #[derive(Component, Default)]
-struct Instance;
-
-#[derive(Component, Default)]
 struct Name(String);
+
+/// Stores the hashes from dependencies
+#[derive(Component, Default)]
+struct Hash(String);
 
 /// ready to run
 #[derive(Component, Default)]
@@ -49,9 +50,13 @@ fn add_tasks(mut commands: Commands, config: Res<Vec<ConfigFile>>) {
     for config_file in &*config {
         let parent = config_file.parent.as_deref().unwrap_or("root");
         for name in [parent, &config_file.id] {
-            entities
-                .entry(name)
-                .or_insert_with(|| commands.spawn().insert(Name(name.to_string())).id());
+            entities.entry(name).or_insert_with(|| {
+                commands
+                    .spawn()
+                    .insert(Name(name.to_string()))
+                    .insert(Hash::default())
+                    .id()
+            });
         }
     }
 
@@ -70,6 +75,7 @@ fn make_ready(
     mut commands: Commands,
     q_parent: Query<(Entity, Option<&Children>), New>,
     q_child: Query<(Entity, &Name), Without<Done>>,
+    q_dependents: Query<&Hash>,
 ) {
     for (parent, children) in &q_parent {
         let is_ready = if let Some(children) = children {
@@ -80,6 +86,13 @@ fn make_ready(
         };
         if is_ready {
             commands.entity(parent).insert(Ready);
+            if let Some(children) = children {
+                let hashes = children
+                    .iter()
+                    .flat_map(|&child| q_dependents.get(child).map(|hash| hash.0.clone()))
+                    .collect::<Vec<_>>();
+                commands.entity(parent).insert(Hash(hashes.join("")));
+            }
         }
     }
 }
@@ -88,14 +101,18 @@ type ReadyChildren = (With<Ready>, With<Parent>);
 
 fn start_tasks(
     mut commands: Commands,
-    mut q_child: Query<(Entity, &Name), ReadyChildren>,
+    mut q_child: Query<(Entity, &Name, &Hash), ReadyChildren>,
     config: Res<Vec<ConfigFile>>,
 ) {
     let thread_pool = AsyncComputeTaskPool::get();
-    for (child, child_name) in &mut q_child {
+    for (child, child_name, hash) in &mut q_child {
         let child_name = child_name.0.clone();
         if let Some(config_file) = config.iter().cloned().find(|c| c.id == child_name) {
-            let task = thread_pool.spawn(async move { tasks::run_task(&config_file).await });
+            let additional = hash.0.as_bytes().to_owned();
+            println!("additional {}", &hash.0);
+
+            let task =
+                thread_pool.spawn(async move { tasks::run_task(&config_file, &additional).await });
             commands.entity(child).remove::<Ready>();
             commands.entity(child).insert(Run(task));
         }
@@ -104,10 +121,10 @@ fn start_tasks(
 
 fn monitor_tasks(mut commands: Commands, mut q_child: Query<(Entity, &mut Run)>) {
     for (entity, mut task) in &mut q_child {
-        if let Some(Ok(child)) = future::block_on(future::poll_once(&mut task.0)) {
-            println!("done: {child}");
+        if let Some(Ok(hash)) = future::block_on(future::poll_once(&mut task.0)) {
             commands.entity(entity).remove::<Run>();
             commands.entity(entity).insert(Done);
+            commands.entity(entity).insert(Hash(hash));
         }
     }
 }

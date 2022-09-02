@@ -1,0 +1,14 @@
+description = "Build project 'a'"
+run = "./a-build.sh"
+
+[input]
+invariants = ["rustc -vV"]
+env_vars = ["TEST"]
+
+[[input.files]]
+root = "a"
+filters = ["./src/**", "./Cargo.*"]
+
+[[output.files]]
+root = "dist"
+filters = ["dist/a"]

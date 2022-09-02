@@ -7,7 +7,7 @@ use crate::{
     reporter::Reporter,
 };
 use async_channel::unbounded;
-use async_std::fs::File;
+use async_std::{fs::File, path::Path};
 use bevy_tasks::AsyncComputeTaskPool;
 use color_eyre::eyre::Result;
 use duration::format_duration;
@@ -56,7 +56,7 @@ pub async fn show() -> Result<()> {
     Ok(())
 }
 
-pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
+pub async fn run_task(config_file: &ConfigFile, additional: &[u8]) -> Result<String> {
     let start = Instant::now();
     let config = &config_file.config;
     let task_id = config_file.id.clone();
@@ -69,7 +69,7 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
         config_file.path.to_string_lossy()
     ));
 
-    let current = Hash::new(&config.input, &config_file.bytes).await?;
+    let current = Hash::new(&config.input, &config_file.bytes, additional).await?;
     if let Some((path, previous)) = Manifest::read(&current).await? {
         let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
 
@@ -93,33 +93,34 @@ pub async fn run_task(config_file: &ConfigFile) -> Result<String> {
     } else {
         report(&format!("no cache found, executing \"{}\"\n", &config.run));
 
+        let path = Manifest::new(&current, config).write().await?;
+        let cache_dir = path
+            .parent()
+            .expect("manifest should have parent directory");
+
         let (tx, rx) = unbounded();
 
         let pool = AsyncComputeTaskPool::get();
-        pool.scope(|s: &mut bevy_tasks::Scope<'_, Result<()>>| {
+        pool.scope(|s| {
             s.spawn(async move { CommandRunner::get().run(&config.run, tx).await });
-            s.spawn(async move { process_log_stream(current, config, rx, report).await });
+            s.spawn(async move { process_log_stream(cache_dir, config, rx, report).await });
         })
         .into_iter()
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Result<Vec<()>>>()?;
     };
     report(&format!(
         "Finished in {}",
         format_duration(Instant::now() - start)
     ));
-    Ok("This is the resulting hash".to_string())
+    Ok(current.to_string())
 }
 
 async fn process_log_stream(
-    current: Hash,
+    cache_dir: &Path,
     config: &config_file::Config,
     rx: async_channel::Receiver<Vec<u8>>,
     report: &impl Fn(&str),
 ) -> Result<()> {
-    let path = Manifest::new(current, config).write().await?;
-    let cache_dir = path
-        .parent()
-        .expect("manifest should have parent directory");
     let mut writer_colors = File::create(cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
     let mut writer_plain = File::create(cache_dir.join(cache::OUTPUT_PLAIN_TXT_FILE)).await?;
     while let Ok(msg) = rx.recv().await {
