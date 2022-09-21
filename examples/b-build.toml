@@ -1,0 +1,10 @@
+description = "Build project 'b'"
+run = "cd b && cargo build"
+
+[input]
+invariants = ["rustc -vV"]
+env_vars = ["TEST"]
+
+[[input.files]]
+root = "b"
+filters = ["./src/**", "./Cargo.*"]

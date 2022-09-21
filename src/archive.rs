@@ -1,18 +1,18 @@
-use crate::{cache, config::Selector};
-use bytesize::ByteSize;
-use color_eyre::Result;
-use globset::{Glob, GlobSetBuilder};
-use ignore::WalkBuilder;
-use std::{
+use crate::{cache, config_file::Selector};
+use async_std::{
     fs::{self, File, OpenOptions},
-    io::copy,
-    os::unix::prelude::OpenOptionsExt,
+    os::unix::fs::OpenOptionsExt,
     path::Path,
 };
-use tar::{Archive, Builder};
+use async_tar::{Archive, Builder};
+use bytesize::ByteSize;
+use color_eyre::Result;
+use futures_lite::{io::copy, StreamExt};
+use globset::{Glob, GlobSetBuilder};
+use ignore::WalkBuilder;
 
-pub fn write_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
-    let file = File::create(cache_dir.join(cache::OUTPUT_TAR_FILE))?;
+pub async fn write_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
+    let file = File::create(cache_dir.join(cache::OUTPUT_TAR_FILE)).await?;
     let mut context = Builder::new(file);
 
     for selector in selectors {
@@ -31,22 +31,23 @@ pub fn write_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
             .filter(|f| f.is_file() && filters.is_match(f))
         {
             info!("archiving \"{}\"", file.as_path().to_string_lossy());
-            context.append_path(file)?;
+            context.append_path(file).await?;
         }
     }
 
     Ok(())
 }
 
-pub fn read_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
+pub async fn read_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
     for selector in selectors {
-        fs::create_dir_all(&selector.root)?;
+        fs::create_dir_all(&selector.root).await?;
     }
 
-    if let Ok(file) = File::open(cache_dir.join(cache::OUTPUT_TAR_FILE)) {
-        let mut a = Archive::new(file);
+    if let Ok(file) = File::open(cache_dir.join(cache::OUTPUT_TAR_FILE)).await {
+        let a = Archive::new(file);
+        let mut entries = a.entries()?;
 
-        for file in a.entries()? {
+        while let Some(file) = entries.next().await {
             // Make sure there wasn't an I/O error
             let mut in_file = file?;
 
@@ -63,8 +64,9 @@ pub fn read_archive(selectors: &[Selector], cache_dir: &Path) -> Result<()> {
                 .write(true)
                 .create(true)
                 .mode(mode)
-                .open(path)?;
-            copy(&mut in_file, &mut out_file)?;
+                .open(path)
+                .await?;
+            copy(&mut in_file, &mut out_file).await?;
         }
     } else {
         info!("no archive found");

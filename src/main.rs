@@ -5,20 +5,20 @@ extern crate lazy_static;
 mod archive;
 mod cache;
 mod command_runner;
-pub mod config;
+mod config_file;
 mod duration;
+mod reporter;
+mod task_plugin;
 mod tasks;
 
-use crate::cache::{Hash, Manifest};
 use atty::Stream;
+use bevy_app::App;
+use bevy_hierarchy::HierarchyPlugin;
+use bevy_internal::MinimalPlugins;
 use clap::Parser;
 use color_eyre::eyre::Result;
-use duration::format_duration;
-use std::{
-    env,
-    time::{Instant, SystemTime},
-};
-use tokio::{fs::File, io::AsyncReadExt};
+use std::env;
+use task_plugin::TaskPlugin;
 use yansi::Paint;
 
 #[derive(Parser, Debug)]
@@ -33,7 +33,7 @@ struct Args {
     tasks: Vec<String>,
 }
 
-#[tokio::main]
+#[async_std::main]
 async fn main() -> Result<()> {
     if !atty::is(Stream::Stdout) {
         Paint::disable();
@@ -52,57 +52,15 @@ async fn main() -> Result<()> {
     sensible_env_logger::init_timed!();
 
     if args.tasks.is_empty() {
-        tasks::show()?;
+        tasks::show().await?;
     } else {
-        for config_file in config::find(&args.tasks)? {
-            let start = Instant::now();
-            let config = config_file.config;
-
-            println!();
-            info!(
-                "using config \"{}\" ({})",
-                config.description.as_deref().unwrap_or("<no description>"),
-                config_file.path.to_string_lossy()
-            );
-
-            let current = Hash::new(&config.input, &config_file.bytes)?;
-            if let Some((path, previous)) = Manifest::read(&current)? {
-                let ago = format_duration(SystemTime::now().duration_since(previous.created)?);
-                info!("found local cache from {ago} ago, reprinting output...\n");
-
-                let cache_dir = path
-                    .parent()
-                    .expect("manifest should have parent directory");
-                let mut f = File::open(&cache_dir.join(cache::OUTPUT_COLORS_TXT_FILE)).await?;
-
-                let mut buffer = String::new();
-                f.read_to_string(&mut buffer).await?;
-
-                println!("{}", buffer);
-
-                if let Some(output) = config.output {
-                    archive::read_archive(&output.files.unwrap_or_default(), cache_dir)?;
-                }
-            } else {
-                info!("no cache found, executing \"{}\"\n", &config.run);
-
-                let path = Manifest::new(current, &config).write()?;
-                let cache_dir = path
-                    .parent()
-                    .expect("manifest should have parent directory");
-
-                command_runner::run(&config.run, cache_dir).await?;
-
-                if let Some(output) = config.output {
-                    archive::write_archive(&output.files.unwrap_or_default(), cache_dir)?;
-                }
-            };
-            info!(
-                "Finished {}, in {}",
-                config_file.name,
-                format_duration(Instant::now() - start)
-            );
-        }
+        let config = config_file::build_tree(&args.tasks).await?;
+        App::new()
+            .add_plugins(MinimalPlugins)
+            .add_plugin(HierarchyPlugin)
+            .insert_resource(config)
+            .add_plugin(TaskPlugin)
+            .run();
     }
 
     Ok(())

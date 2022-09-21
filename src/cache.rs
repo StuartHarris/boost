@@ -1,18 +1,16 @@
-use crate::config::{Config, Input, Selector};
+use crate::config_file::{Config, Input, Selector};
+use async_std::{
+    fs::{self, File, OpenOptions},
+    path::{Path, PathBuf},
+    process::Command,
+};
 use b2sum_rs::Blake2bSum;
 use color_eyre::eyre::{Context, Result};
+use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use globset::{Glob, GlobSetBuilder};
 use ignore::Walk;
 use serde::{Deserialize, Serialize};
-use std::{
-    env,
-    fs::{self, File, OpenOptions},
-    io::{BufWriter, Read},
-    path::{Path, PathBuf},
-    process::Command,
-    str::FromStr,
-    time::SystemTime,
-};
+use std::{env, str::FromStr, time::SystemTime};
 
 const CACHE_DIR: &str = ".boost";
 const MANIFEST: &str = "manifest.json";
@@ -20,8 +18,14 @@ pub const OUTPUT_COLORS_TXT_FILE: &str = "output-colors.txt";
 pub const OUTPUT_PLAIN_TXT_FILE: &str = "output.txt";
 pub const OUTPUT_TAR_FILE: &str = "output.tar";
 
-#[derive(Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, PartialEq, Eq, Clone)]
 pub struct Hash(String);
+
+impl std::fmt::Display for Hash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl AsRef<Path> for Hash {
     fn as_ref(&self) -> &Path {
@@ -37,19 +41,20 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn new(hash: Hash, config: &Config) -> Self {
+    pub fn new(hash: &Hash, config: &Config) -> Self {
         Self {
             created: SystemTime::now(),
-            hash,
+            hash: hash.clone(),
             config: config.clone(),
         }
     }
 
-    pub fn read(hash: &Hash) -> Result<Option<(PathBuf, Self)>> {
-        let path = hash.create_cache_dir()?.join(MANIFEST);
-        if let Ok(mut f) = File::open(&path) {
+    pub async fn read(hash: &Hash) -> Result<Option<(PathBuf, Self)>> {
+        let path = hash.create_cache_dir().await?.join(MANIFEST);
+        if let Ok(mut f) = File::open(&path).await {
             let mut buf = String::new();
             f.read_to_string(&mut buf)
+                .await
                 .wrap_err_with(|| format!("reading {}", path.to_string_lossy()))?;
             let manifest = serde_json::from_str(&buf)?;
             Ok(Some((path, manifest)))
@@ -58,22 +63,25 @@ impl Manifest {
         }
     }
 
-    pub fn write(&self) -> Result<PathBuf> {
-        let path = self.hash.create_cache_dir()?.join(MANIFEST);
-        let f = OpenOptions::new()
+    pub async fn write(&self) -> Result<PathBuf> {
+        let path = self.hash.create_cache_dir().await?.join(MANIFEST);
+        let mut f = OpenOptions::new()
             .create(true)
             .write(true)
             .open(&path)
+            .await
             .wrap_err_with(|| format!("opening {} for writing", path.to_string_lossy()))?;
-        f.set_len(0)?;
-        let writer = BufWriter::new(&f);
-        serde_json::to_writer(writer, self)?;
+        f.set_len(0).await?;
+
+        let json = serde_json::to_string(self)?;
+        f.write_all(json.as_bytes()).await?;
+
         Ok(path)
     }
 }
 
 impl Hash {
-    pub fn new(input: &Input, config_file: &[u8]) -> Result<Self> {
+    pub async fn new(input: &Input, config_file: &[u8], additional: &[u8]) -> Result<Self> {
         let context = Blake2bSum::new(16);
         let mut all: Vec<u8> = Vec::new();
         let selectors = input
@@ -99,7 +107,7 @@ impl Hash {
 
             if let Some(commands) = &input.invariants {
                 for command in commands {
-                    let out = Command::new("sh").args(["-c", command]).output()?;
+                    let out = Command::new("sh").args(["-c", command]).output().await?;
                     let out = out.stdout.as_slice();
                     debug!("input command: {}\n{}", command, std::str::from_utf8(out)?);
                     all.extend_from_slice(out);
@@ -118,13 +126,14 @@ impl Hash {
 
         debug!("config {:?}", std::str::from_utf8(config_file));
         all.extend_from_slice(config_file);
+        all.extend_from_slice(additional);
 
         Ok(Self(context.read_bytes(&all)))
     }
 
-    pub fn create_cache_dir(&self) -> Result<PathBuf> {
+    pub async fn create_cache_dir(&self) -> Result<PathBuf> {
         let path = PathBuf::from_str(CACHE_DIR)?.join(self);
-        fs::create_dir_all(&path)?;
+        fs::create_dir_all(&path).await?;
         Ok(path)
     }
 }
