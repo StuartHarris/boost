@@ -22,7 +22,7 @@ use task_plugin::TaskPlugin;
 use yansi::Paint;
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = Some(SPLASH))]
 struct Args {
     /// log with level DEBUG
     #[clap(short, long, global(true), parse(from_occurrences))]
@@ -65,3 +65,11 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+const SPLASH: &str = r#"
+________                   _____ 
+___  __ )____________________  /_
+__  __  |  __ \  __ \_  ___/  __/
+_  /_/ // /_/ / /_/ /(__  )/ /_  
+/_____/ \____/\____//____/ \__/  
+"#;
