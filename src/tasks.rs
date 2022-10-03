@@ -1,6 +1,6 @@
 use crate::config;
 use color_eyre::eyre::Result;
-use tabled::{object::Columns, Format, Modify, Style, Table, Tabled};
+use tabled::{format::Format, object::Columns, Alignment, Modify, Style, Table, Tabled};
 use yansi::Paint;
 
 #[derive(Tabled)]
@@ -29,8 +29,10 @@ pub fn show() -> Result<()> {
             }
         });
 
-        let table = Table::new(tasks)
-            .with(Style::rounded().lines([(1, Style::modern().get_horizontal())]))
+        let mut table = Table::new(tasks);
+        table
+            .with(Style::rounded())
+            .with(Alignment::left())
             .with(Modify::new(Columns::single(0)).with(cyan))
             .with(Modify::new(Columns::single(1)).with(blue))
             .with(Modify::new(Columns::new(2..)).with(green));

@@ -22,11 +22,11 @@ use tokio::{fs::File, io::AsyncReadExt};
 use yansi::Paint;
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = Some(SPLASH))]
+#[command(author, version, about, long_about = Some(SPLASH))]
 struct Args {
     /// log with level DEBUG
-    #[clap(short, long, global(true), parse(from_occurrences))]
-    verbose: usize,
+    #[arg(short, long, global(true), action = clap::ArgAction::Count)]
+    verbose: u8,
 
     /// Run the tasks specified (each will expect to find a TOML config file called "<name>.toml").
     /// If none specified, list all the tasks for which there is a valid configuration file in the current directory
@@ -115,3 +115,9 @@ __  __  |  __ \  __ \_  ___/  __/
 _  /_/ // /_/ / /_/ /(__  )/ /_  
 /_____/ \____/\____//____/ \__/  
 "#;
+
+#[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    Args::command().debug_assert()
+}
